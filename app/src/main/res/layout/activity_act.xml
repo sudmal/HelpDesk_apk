@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#121212">
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <ProgressBar
+                android:id="@+id/progressAct"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:visibility="visible"/>
+
+            <LinearLayout
+                android:id="@+id/layoutContent"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/tvNumber"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="#FFFFFF"/>
+
+                <TextView
+                    android:id="@+id/tvStatus"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:textSize="12sp"
+                    android:textColor="#FFFFFF"
+                    android:paddingHorizontal="10dp"
+                    android:paddingVertical="4dp"
+                    android:background="@drawable/bg_status"/>
+
+                <TextView
+                    android:id="@+id/tvType"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:textSize="14sp"
+                    android:textColor="#CCCCCC"/>
+
+                <TextView
+                    android:id="@+id/tvCreator"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:textSize="14sp"
+                    android:textColor="#CCCCCC"/>
+
+                <!-- Banner: brigade foreman edited materials, awaiting acknowledgement -->
+                <LinearLayout
+                    android:id="@+id/bannerAcknowledge"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:background="#3A2A0D"
+                    android:padding="12dp"
+                    android:layout_marginTop="12dp"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Бригадир изменил состав акта"
+                        android:textStyle="bold"
+                        android:textSize="14sp"
+                        android:textColor="#FBBF24"/>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnAcknowledge"
+                        android:layout_width="match_parent"
+                        android:layout_height="44dp"
+                        android:layout_marginTop="8dp"
+                        android:text="Подтвердить"
+                        android:backgroundTint="#F59E0B"
+                        android:textColor="#000000"/>
+
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="#333333"
+                    android:layout_marginVertical="16dp"/>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Материалы"
+                    android:textStyle="bold"
+                    android:textSize="16sp"
+                    android:textColor="#FFFFFF"/>
+
+                <TextView
+                    android:id="@+id/tvMaterialsEmpty"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="Материалов нет"
+                    android:textSize="13sp"
+                    android:textColor="#6B7280"
+                    android:visibility="gone"/>
+
+                <LinearLayout
+                    android:id="@+id/layoutMaterials"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_marginTop="6dp"/>
+
+                <TextView
+                    android:id="@+id/tvTotal"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textColor="#4ADE80"
+                    android:visibility="gone"/>
+
+                <TextView
+                    android:id="@+id/tvPromotionBadge"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textColor="#FBBF24"
+                    android:visibility="gone"/>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnAddMaterial"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="+ Добавить материал"
+                    android:textColor="#42A5F5"
+                    app:strokeColor="#42A5F5"
+                    app:strokeWidth="1dp"
+                    android:visibility="gone"/>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="#333333"
+                    android:layout_marginVertical="16dp"/>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="История"
+                    android:textStyle="bold"
+                    android:textSize="16sp"
+                    android:textColor="#FFFFFF"/>
+
+                <LinearLayout
+                    android:id="@+id/layoutHistory"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_marginTop="6dp"/>
+
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- Action panel -->
+    <LinearLayout
+        android:id="@+id/panelActions"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="8dp"
+        android:background="#1E1E1E"
+        android:elevation="4dp"
+        android:visibility="gone">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnApprove"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="Утвердить акт"
+            android:backgroundTint="#10B981"
+            android:textColor="#FFFFFF"
+            android:visibility="gone"/>
+
+    </LinearLayout>
+
+</LinearLayout>
