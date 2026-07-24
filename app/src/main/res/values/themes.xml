@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.HelpDesk" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <!-- Brand -->
+        <item name="colorPrimary">#1D4ED8</item>
+        <item name="colorPrimaryVariant">#1E40AF</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="colorSecondary">#3B82F6</item>
+        <item name="colorOnSecondary">#FFFFFF</item>
+        <!-- Dark surfaces -->
+        <item name="android:windowBackground">#121212</item>
+        <item name="android:colorBackground">#121212</item>
+        <item name="colorSurface">#1E1E1E</item>
+        <item name="colorOnSurface">#FFFFFF</item>
+        <!-- Text -->
+        <item name="android:textColorPrimary">#FFFFFF</item>
+        <item name="android:textColorSecondary">#AAAAAA</item>
+        <!-- TextInputLayout default style -->
+        <item name="textInputStyle">@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox</item>
+        <!-- Status bar matches header -->
+        <item name="android:statusBarColor">#1D4ED8</item>
+    </style>
+</resources>
