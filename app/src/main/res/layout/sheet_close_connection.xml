@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="#1E1E1E">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Завершить подключение"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="#FFFFFF"
+            android:layout_marginBottom="16dp"/>
+
+        <TextView
+            android:id="@+id/tvError"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="13sp"
+            android:textColor="#EF4444"
+            android:background="#2D1414"
+            android:padding="10dp"
+            android:layout_marginBottom="8dp"
+            android:visibility="gone"/>
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Примечание"
+            android:layout_marginTop="10dp"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            app:boxStrokeColor="#888888"
+            app:hintTextColor="#9E9E9E"
+            app:boxBackgroundColor="#2A2A2A">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/etNotes"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="#FFFFFF"
+                android:background="@null"
+                android:inputType="textMultiLine"
+                android:minLines="2"
+                android:maxLines="4"/>
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Materials section -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Материалы"
+            android:textSize="14sp"
+            android:textColor="#9E9E9E"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="4dp"/>
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvMaterials"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:nestedScrollingEnabled="false"/>
+
+        <Button
+            android:id="@+id/btnAddMaterial"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="+ Добавить материал"
+            android:layout_marginTop="4dp"
+            android:backgroundTint="#37474F"/>
+
+        <TextView
+            android:id="@+id/tvTotal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:textSize="14sp"
+            android:textColor="#4ADE80"
+            android:textStyle="bold"
+            android:visibility="gone"/>
+
+        <!-- Promotion selector: only shown once materials are present -->
+        <TextView
+            android:id="@+id/tvPromotionLabel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Акция"
+            android:textSize="14sp"
+            android:textColor="#9E9E9E"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="4dp"
+            android:visibility="gone"/>
+
+        <Spinner
+            android:id="@+id/spinnerPromotion"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:visibility="gone"/>
+
+        <TextView
+            android:id="@+id/tvPromotionPay"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:textSize="14sp"
+            android:textColor="#FBBF24"
+            android:textStyle="bold"
+            android:visibility="gone"/>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginTop="16dp">
+
+            <ProgressBar
+                android:id="@+id/progressSubmit"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="8dp"
+                android:visibility="gone"/>
+
+            <Button
+                android:id="@+id/btnSubmitClose"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:text="Завершить"
+                android:backgroundTint="#10B981"/>
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</ScrollView>
