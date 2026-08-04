@@ -46,6 +46,11 @@
             android:parentActivityName=".ui.main.MainActivity" />
 
         <activity
+            android:name=".ui.profile.ProfileActivity"
+            android:exported="false"
+            android:parentActivityName=".ui.main.MainActivity" />
+
+        <activity
             android:name=".ui.connections.ConnectionDetailActivity"
             android:exported="false"
             android:parentActivityName=".ui.main.MainActivity" />
@@ -58,6 +63,11 @@
         <activity
             android:name=".ui.act.ActActivity"
             android:exported="false" />
+
+        <activity
+            android:name=".ui.acts.ActsListActivity"
+            android:exported="false"
+            android:parentActivityName=".ui.main.MainActivity" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

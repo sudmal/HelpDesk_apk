@@ -20,6 +20,8 @@ data class TicketEntity(
     val actStatus: String? = null,
     val actMaterialsChangedAt: String? = null,
     val addressFull: String?,
+    val territoryId: Int? = null,
+    val territoryName: String? = null,
     val typeName: String?,
     val serviceTypeName: String?,
     val serviceTypeColor: String?,

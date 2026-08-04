@@ -201,7 +201,7 @@
         </LinearLayout>
     </ScrollView>
 
-    <!-- Панель действий для активных заявок -->
+    <!-- Панель комментария — видна для заявок в любом статусе -->
     <LinearLayout
         android:id="@+id/panelComment"
         android:layout_width="match_parent"

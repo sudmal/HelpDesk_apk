@@ -18,14 +18,17 @@ import android.widget.PopupMenu
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import com.google.android.material.tabs.TabLayoutMediator
 import com.sputnik.helpdesk.App
 import com.sputnik.helpdesk.R
 import com.sputnik.helpdesk.update.UpdateChecker
 import com.sputnik.helpdesk.data.api.RetrofitClient
+import com.sputnik.helpdesk.ui.acts.ActsListActivity
 import com.sputnik.helpdesk.ui.connections.ConnectionsFragment
 import com.sputnik.helpdesk.ui.schedule.ScheduleActivity
 import com.sputnik.helpdesk.data.db.AppDatabase
@@ -51,6 +54,7 @@ class MainActivity : AppCompatActivity() {
 
     private var lastKnownDate = java.time.LocalDate.now()
     private var lastUpdateCheckAt = 0L
+    private var pendingActsCount = 0
 
     private val dateChangeReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -102,6 +106,16 @@ class MainActivity : AppCompatActivity() {
             binding.tvLastSync.text = time ?: ""
         }
 
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                AppDatabase.get(this@MainActivity).actDao().pendingForemanCountFlow()
+                    .collect { count ->
+                        pendingActsCount = count
+                        binding.dotMenuBadge.visibility = if (count > 0) View.VISIBLE else View.GONE
+                    }
+            }
+        }
+
         binding.viewPager.adapter = object : FragmentStateAdapter(this) {
             override fun getItemCount(): Int = tabs.size
             override fun createFragment(position: Int): Fragment =
@@ -122,10 +136,31 @@ class MainActivity : AppCompatActivity() {
         binding.btnMenu.setOnClickListener { view ->
             PopupMenu(this, view).apply {
                 menuInflater.inflate(R.menu.menu_main, menu)
+                if (pendingActsCount > 0) {
+                    menu.findItem(R.id.action_acts)?.let { item ->
+                        val label = "Акты"
+                        val full = "●  $label"
+                        val span = SpannableString(full)
+                        span.setSpan(
+                            ForegroundColorSpan(0xFFEF4444.toInt()),
+                            0, 1,
+                            Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                        )
+                        item.title = span
+                    }
+                }
                 setOnMenuItemClickListener { item ->
                     when (item.itemId) {
                         R.id.action_schedule -> {
                             startActivity(Intent(this@MainActivity, ScheduleActivity::class.java))
+                            true
+                        }
+                        R.id.action_acts -> {
+                            startActivity(Intent(this@MainActivity, ActsListActivity::class.java))
+                            true
+                        }
+                        R.id.action_profile -> {
+                            startActivity(Intent(this@MainActivity, com.sputnik.helpdesk.ui.profile.ProfileActivity::class.java))
                             true
                         }
                         R.id.action_settings -> {

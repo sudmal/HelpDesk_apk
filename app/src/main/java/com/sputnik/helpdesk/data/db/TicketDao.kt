@@ -12,8 +12,11 @@ interface TicketDao {
     @Query("SELECT * FROM tickets WHERE `group` = :group AND (:stName IS NULL OR serviceTypeName = :stName) ORDER BY scheduledAt ASC")
     suspend fun getByGroupFiltered(group: String, stName: String?): List<TicketEntity>
 
-    @Query("SELECT * FROM tickets WHERE `group` = :group AND (:stName IS NULL OR serviceTypeName = :stName) ORDER BY scheduledAt ASC")
-    fun getByGroupFilteredFlow(group: String, stName: String?): Flow<List<TicketEntity>>
+    @Query("""SELECT * FROM tickets WHERE `group` = :group
+        AND (:stName IS NULL OR serviceTypeName = :stName)
+        AND (:territoryId IS NULL OR territoryId = :territoryId)
+        ORDER BY scheduledAt ASC""")
+    fun getByGroupFilteredFlow(group: String, stName: String?, territoryId: Int?): Flow<List<TicketEntity>>
 
     @Query("SELECT * FROM tickets WHERE id = :id LIMIT 1")
     suspend fun getById(id: Int): TicketEntity?

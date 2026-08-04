@@ -93,6 +93,13 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
                 syncConnectionRequests(api.getConnectionRequests(perPage = 100).data)
             } catch (_: Exception) { }
 
+            // Sync acts (not yet fully approved) — feeds the "Акты" list + red-dot badge
+            try {
+                val acts = api.getActs().data
+                db.actDao().deleteAll()
+                db.actDao().insertAll(acts.map { it.toEntity() })
+            } catch (_: Exception) { }
+
             Result.success()
         } catch (_: Exception) {
             Result.retry()

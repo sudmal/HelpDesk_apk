@@ -57,5 +57,8 @@ class App : Application() {
 
         // Emits Unit after a connection request is updated — triggers list sync.
         val connectionUpdatedEvent = MutableLiveData<Unit?>()
+
+        // Emits Unit after an act is approved/acknowledged/edited — refreshes the acts cache + badge.
+        val actUpdatedEvent = MutableLiveData<Unit?>()
     }
 }

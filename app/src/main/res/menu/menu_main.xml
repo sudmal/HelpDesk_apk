@@ -4,6 +4,12 @@
         android:id="@+id/action_schedule"
         android:title="Расписание выходов"/>
     <item
+        android:id="@+id/action_acts"
+        android:title="Акты"/>
+    <item
+        android:id="@+id/action_profile"
+        android:title="Профиль"/>
+    <item
         android:id="@+id/action_settings"
         android:title="Настройки"/>
     <item

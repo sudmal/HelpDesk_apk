@@ -246,8 +246,10 @@ class DetailActivity : AppCompatActivity() {
     }
 
     private fun applyFinalState(isFinal: Boolean, closedAt: String?, closedBy: String?, closeNotes: String?, actNumber: String?, actId: Int?) {
+        // Комментарии доступны независимо от статуса заявки — сервер их по статусу не ограничивает.
+        binding.panelComment.visibility = View.VISIBLE
+
         if (isFinal) {
-            binding.panelComment.visibility = View.GONE
             binding.blockClosed.visibility  = View.VISIBLE
             binding.tvClosedAt.text         = "Закрыто: ${formatDateTime(closedAt) ?: "—"}"
             binding.tvActNumber.text        = "Акт: ${actNumber ?: "б/а"}"
@@ -281,7 +283,6 @@ class DetailActivity : AppCompatActivity() {
                 binding.tvCloseNotes.visibility = View.GONE
             }
         } else {
-            binding.panelComment.visibility      = View.VISIBLE
             binding.blockClosed.visibility       = View.GONE
         }
     }

@@ -35,6 +35,7 @@ data class Ticket(
     val act_number: String?,
     val act: ActSummary? = null,
     val address: TicketAddress?,
+    val territory: CRTerritory? = null,
     val type: String?,
     val service_type: ServiceType?,
     val status: TicketStatus?,
@@ -171,6 +172,7 @@ data class Act(
     val foreman_reviewed_at: String?,
     val foreman_reviewed_by: String?,
     val materials_changed_at: String?,
+    val materials_corrected_at: String? = null,
     val promotion_name: String? = null,
     val promotion_price: Double? = null,
     val materials: List<ActMaterial> = emptyList(),
@@ -179,3 +181,49 @@ data class Act(
 )
 
 data class UpdateActMaterialReq(val quantity: Double)
+
+/** Lightweight row for the "Акты" list screen — GET /acts. Full details via GET /acts/{id}. */
+data class ActListItem(
+    val id: Int,
+    val number: String,
+    val type: String,
+    val status: String,
+    val ticket_id: Int?,
+    val ticket_number: String?,
+    val connection_request_id: Int?,
+    val connection_request_name: String?,
+    val address: String?,
+    val creator: String?,
+    val created_at: String,
+    val foreman_reviewed_at: String?,
+    val materials_changed_at: String?,
+    val materials_corrected_at: String? = null,
+    val can: ActCan,
+)
+
+data class ActsResponse(
+    val data: List<ActListItem>,
+    val synced_at: String?,
+)
+
+// --- Profile ---
+
+data class Profile(
+    val id: Int,
+    val name: String,
+    val phone: String?,
+    val email: String?,
+    val telegram_chat_id: String?,
+    val max_chat_id: String?,
+    val notify_on_days_off: Boolean,
+    val role: String,
+)
+
+data class UpdateProfileReq(
+    val name: String,
+    val phone: String?,
+    val email: String?,
+    val telegram_chat_id: String?,
+    val max_chat_id: String?,
+    val notify_on_days_off: Boolean,
+)

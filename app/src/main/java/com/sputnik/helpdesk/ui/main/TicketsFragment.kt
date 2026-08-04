@@ -14,12 +14,15 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.chip.Chip
 import com.google.android.material.snackbar.Snackbar
 import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import com.sputnik.helpdesk.data.api.RetrofitClient
 import com.sputnik.helpdesk.data.db.AppDatabase
 import com.sputnik.helpdesk.data.db.TicketEntity
 import com.sputnik.helpdesk.data.db.dateGroup
+import com.sputnik.helpdesk.data.model.CRTerritory
 import com.sputnik.helpdesk.data.model.Ticket
 import com.sputnik.helpdesk.data.prefs.Prefs
 import com.sputnik.helpdesk.databinding.FragmentTicketsBinding
@@ -28,6 +31,7 @@ import com.sputnik.helpdesk.ui.detail.DetailActivity
 import com.sputnik.helpdesk.ui.detail.RescheduleSheet
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 import java.time.LocalTime
@@ -42,6 +46,7 @@ class TicketsFragment : Fragment() {
     private lateinit var adapter: TicketAdapter
     private lateinit var group: String
     private val filterViewModel: FilterViewModel by activityViewModels()
+    private var cachedTerritories = listOf<CRTerritory>()
     private var hasLoadedOnce = false
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
@@ -65,13 +70,26 @@ class TicketsFragment : Fragment() {
         // Pull-to-refresh syncs all tabs
         binding.swipeRefresh.setOnRefreshListener { filterViewModel.requestSync() }
 
+        if (filterViewModel.selectedTerritoryId.value == null) {
+            filterViewModel.selectedTerritoryId.value = Prefs(requireContext()).selectedTicketTerritoryId
+        }
+        populateTerritoryChips(parseTerritories(Prefs(requireContext()).connectionTerritoriesJson))
+
+        // Другая вкладка могла сменить фильтр — держим подсветку чипов в этом инстансе в синхроне.
+        filterViewModel.selectedTerritoryId.observe(viewLifecycleOwner) {
+            populateTerritoryChips(cachedTerritories)
+        }
+
         // Room Flow: auto-update list when DB changes or filter changes
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                filterViewModel.selectedServiceTypeName.asFlow()
-                    .flatMapLatest { filterName ->
+                combine(
+                    filterViewModel.selectedServiceTypeName.asFlow(),
+                    filterViewModel.selectedTerritoryId.asFlow(),
+                ) { filterName, territoryId -> filterName to territoryId }
+                    .flatMapLatest { (filterName, territoryId) ->
                         AppDatabase.get(requireContext()).ticketDao()
-                            .getByGroupFilteredFlow(group, filterName)
+                            .getByGroupFilteredFlow(group, filterName, territoryId)
                     }
                     .collect { tickets ->
                         val sorted = sortTickets(tickets)
@@ -200,6 +218,10 @@ class TicketsFragment : Fragment() {
                     saveToCache(tickets, newIds)
                     // Room Flow will auto-emit with new data — no manual showTickets needed
                     (activity as? MainActivity)?.refreshSpinnerFromCache()
+                    // Territories are only returned by GET /connection-requests — pick up whatever
+                    // ConnectionsFragment has cached to prefs by now (per API_MOBILE.md, the id set
+                    // is shared between tickets and connection requests).
+                    populateTerritoryChips(parseTerritories(prefs.connectionTerritoriesJson))
                     val time = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"))
                     filterViewModel.lastSyncTime.value = "Обновлено в $time"
                     failed = false
@@ -245,6 +267,8 @@ class TicketsFragment : Fragment() {
                 actStatus        = t.act?.status,
                 actMaterialsChangedAt = t.act?.materials_changed_at,
                 addressFull      = t.address?.full,
+                territoryId      = t.territory?.id,
+                territoryName    = t.territory?.name,
                 typeName         = t.type,
                 serviceTypeName  = t.service_type?.name,
                 serviceTypeColor = t.service_type?.color,
@@ -264,6 +288,36 @@ class TicketsFragment : Fragment() {
         db.ticketDao().insertAll(entities)
     }
 
+    private fun populateTerritoryChips(territories: List<CRTerritory>) {
+        if (_binding == null) return
+        cachedTerritories = territories
+        val selected = filterViewModel.selectedTerritoryId.value
+        binding.chipGroupTicketTerritories.removeAllViews()
+
+        val chipAll = Chip(requireContext()).apply {
+            text = "Все территории"
+            isCheckable = true
+            isChecked = selected == null
+            setOnClickListener { setTerritoryFilter(null) }
+        }
+        binding.chipGroupTicketTerritories.addView(chipAll)
+
+        territories.forEach { t ->
+            val chip = Chip(requireContext()).apply {
+                text = t.name
+                isCheckable = true
+                isChecked = selected == t.id
+                setOnClickListener { setTerritoryFilter(t.id) }
+            }
+            binding.chipGroupTicketTerritories.addView(chip)
+        }
+    }
+
+    private fun setTerritoryFilter(territoryId: Int?) {
+        Prefs(requireContext()).selectedTicketTerritoryId = territoryId
+        filterViewModel.selectedTerritoryId.value = territoryId
+    }
+
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
@@ -276,3 +330,9 @@ class TicketsFragment : Fragment() {
         }
     }
 }
+
+private fun parseTerritories(json: String): List<CRTerritory> =
+    if (json.isBlank()) emptyList()
+    else runCatching {
+        Gson().fromJson<List<CRTerritory>>(json, object : TypeToken<List<CRTerritory>>() {}.type)
+    }.getOrDefault(emptyList())

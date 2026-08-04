@@ -14,6 +14,7 @@ import androidx.lifecycle.lifecycleScope
 import com.google.android.material.snackbar.Snackbar
 import com.sputnik.helpdesk.App
 import com.sputnik.helpdesk.data.api.RetrofitClient
+import com.sputnik.helpdesk.data.db.ActEntity
 import com.sputnik.helpdesk.data.db.AppDatabase
 import com.sputnik.helpdesk.data.db.MaterialEntity
 import com.sputnik.helpdesk.data.model.Act
@@ -83,6 +84,13 @@ class ActActivity : AppCompatActivity() {
         binding.tvType.text = "Тип: ${typeLabel(act.type)}"
         binding.tvCreator.text = "Создал: ${act.creator ?: "—"}"
 
+        if (act.materials_corrected_at != null) {
+            binding.tvCorrectedBadge.text = "✏️ Исправлено после утверждения ${formatDateTime(act.materials_corrected_at)}"
+            binding.tvCorrectedBadge.visibility = View.VISIBLE
+        } else {
+            binding.tvCorrectedBadge.visibility = View.GONE
+        }
+
         val (statusText, statusColor) = statusDisplay(act.status)
         binding.tvStatus.text = statusText
         binding.tvStatus.setBackgroundColor(Color.parseColor(statusColor))
@@ -116,6 +124,33 @@ class ActActivity : AppCompatActivity() {
                 actMaterialsChangedAt = act.materials_changed_at,
             )))
         }
+
+        if (act.status == "completed") {
+            db.actDao().deleteById(act.id)
+        } else {
+            val existingAct = db.actDao().getById(act.id)
+            db.actDao().upsert(
+                ActEntity(
+                    id = act.id,
+                    number = act.number,
+                    type = act.type,
+                    status = act.status,
+                    ticketId = act.ticket_id,
+                    ticketNumber = existingAct?.ticketNumber,
+                    connectionRequestId = act.connection_request_id,
+                    connectionRequestName = existingAct?.connectionRequestName,
+                    address = existingAct?.address,
+                    creator = act.creator,
+                    createdAt = act.created_at,
+                    foremanReviewedAt = act.foreman_reviewed_at,
+                    materialsChangedAt = act.materials_changed_at,
+                    materialsCorrectedAt = act.materials_corrected_at,
+                    canForemanReview = act.can.foreman_review,
+                    canEditMaterials = act.can.edit_materials,
+                    canAcknowledge = act.can.acknowledge,
+                )
+            )
+        }
     }
 
     private fun applyMaterials(materials: List<ActMaterial>, editable: Boolean) {
@@ -127,22 +162,23 @@ class ActActivity : AppCompatActivity() {
         }
         binding.tvMaterialsEmpty.visibility = View.GONE
 
+        binding.layoutMaterials.addView(materialsHeaderRow(editable))
+
         var total = 0.0
         materials.forEach { m ->
             val row = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = android.view.Gravity.CENTER_VERTICAL
                 layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
-                ).apply { topMargin = 6 }
+                    LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { topMargin = dp(4) }
             }
-            val label = TextView(this).apply {
-                text = "${m.name} — ${fmt(m.quantity)} ${m.unit} × ${fmt(m.price_at_time)} = ${fmt(m.total)} руб."
-                textSize = 13f
-                setTextColor(Color.parseColor("#D1D5DB"))
-                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-            }
-            row.addView(label)
+            row.addView(tableCell(m.code, dp(COL_CODE_DP), "#9CA3AF", gravityStart = true))
+            row.addView(tableCell(m.name, dp(COL_NAME_DP), "#E5E7EB", gravityStart = true))
+            row.addView(tableCell(m.unit, dp(COL_UNIT_DP), "#9CA3AF"))
+            row.addView(tableCell(fmt(m.quantity), dp(COL_QTY_DP), "#D1D5DB"))
+            row.addView(tableCell(fmt(m.price_at_time), dp(COL_PRICE_DP), "#D1D5DB"))
+            row.addView(tableCell(fmt(m.total), dp(COL_SUM_DP), "#D1D5DB", bold = true))
 
             if (editable) {
                 val editBtn = TextView(this).apply {
@@ -170,6 +206,46 @@ class ActActivity : AppCompatActivity() {
         binding.tvTotal.text = "Итого: ${fmt(total)} руб."
         binding.tvTotal.visibility = View.VISIBLE
     }
+
+    private fun materialsHeaderRow(editable: Boolean): LinearLayout = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = android.view.Gravity.CENTER_VERTICAL
+        layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
+        )
+        addView(headerCell("Код", dp(COL_CODE_DP), gravityStart = true))
+        addView(headerCell("Наименование", dp(COL_NAME_DP), gravityStart = true))
+        addView(headerCell("Ед.", dp(COL_UNIT_DP)))
+        addView(headerCell("Кол-во", dp(COL_QTY_DP)))
+        addView(headerCell("Цена", dp(COL_PRICE_DP)))
+        addView(headerCell("Сумма", dp(COL_SUM_DP)))
+        if (editable) addView(headerCell("", dp(64)))
+    }
+
+    private fun headerCell(text: String, widthPx: Int, gravityStart: Boolean = false): TextView = TextView(this).apply {
+        this.text = text
+        textSize = 11f
+        setTextColor(Color.parseColor("#6B7280"))
+        gravity = if (gravityStart) android.view.Gravity.START else android.view.Gravity.END
+        setPadding(if (gravityStart) 0 else dp(8), 0, dp(8), dp(4))
+        layoutParams = LinearLayout.LayoutParams(widthPx, LinearLayout.LayoutParams.WRAP_CONTENT)
+    }
+
+    private fun tableCell(
+        text: String, widthPx: Int, colorHex: String,
+        gravityStart: Boolean = false, bold: Boolean = false,
+    ): TextView = TextView(this).apply {
+        this.text = text
+        textSize = 13f
+        setTextColor(Color.parseColor(colorHex))
+        if (bold) setTypeface(typeface, android.graphics.Typeface.BOLD)
+        gravity = if (gravityStart) android.view.Gravity.START else android.view.Gravity.END
+        setPadding(if (gravityStart) 0 else dp(8), 0, dp(8), 0)
+        maxLines = if (gravityStart) 2 else 1
+        layoutParams = LinearLayout.LayoutParams(widthPx, LinearLayout.LayoutParams.WRAP_CONTENT)
+    }
+
+    private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
 
     private fun applyPromotion(name: String?, price: Double?) {
         if (name != null && price != null) {
@@ -240,6 +316,7 @@ class ActActivity : AppCompatActivity() {
             try {
                 val updated = RetrofitClient.create(Prefs(this@ActActivity)).approveAct(actId)
                 applyData(updated)
+                App.actUpdatedEvent.postValue(Unit)
                 Snackbar.make(binding.root, "Акт утверждён", Snackbar.LENGTH_SHORT).show()
             } catch (e: HttpException) {
                 showApiError(e)
@@ -254,6 +331,7 @@ class ActActivity : AppCompatActivity() {
             try {
                 val updated = RetrofitClient.create(Prefs(this@ActActivity)).acknowledgeAct(actId)
                 applyData(updated)
+                App.actUpdatedEvent.postValue(Unit)
                 Snackbar.make(binding.root, "Подтверждено", Snackbar.LENGTH_SHORT).show()
             } catch (e: HttpException) {
                 showApiError(e)
@@ -395,5 +473,12 @@ class ActActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_ACT_ID = "act_id"
+
+        private const val COL_CODE_DP = 64
+        private const val COL_NAME_DP = 170
+        private const val COL_UNIT_DP = 48
+        private const val COL_QTY_DP = 64
+        private const val COL_PRICE_DP = 72
+        private const val COL_SUM_DP = 84
     }
 }

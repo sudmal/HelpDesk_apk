@@ -6,6 +6,7 @@ import com.sputnik.helpdesk.data.prefs.Prefs
 
 class FilterViewModel : ViewModel() {
     val selectedServiceTypeName = MutableLiveData<String?>(null)
+    val selectedTerritoryId = MutableLiveData<Int?>(null)
 
     // Emitting any value triggers all TicketsFragment instances to re-sync from server
     val syncTrigger = MutableLiveData<Unit>()

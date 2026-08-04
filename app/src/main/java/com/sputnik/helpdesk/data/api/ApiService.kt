@@ -99,6 +99,9 @@ interface ApiService {
 
     // --- Acts ---
 
+    @GET("acts")
+    suspend fun getActs(): ActsResponse
+
     @GET("acts/{id}")
     suspend fun getAct(@Path("id") actId: Int): Act
 
@@ -126,4 +129,12 @@ interface ApiService {
 
     @POST("acts/{id}/acknowledge")
     suspend fun acknowledgeAct(@Path("id") actId: Int): Act
+
+    // --- Profile ---
+
+    @GET("profile")
+    suspend fun getProfile(): Profile
+
+    @PUT("profile")
+    suspend fun updateProfile(@Body request: UpdateProfileReq): Profile
 }

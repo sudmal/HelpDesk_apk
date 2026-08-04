@@ -66,6 +66,19 @@
                     android:textSize="14sp"
                     android:textColor="#CCCCCC"/>
 
+                <!-- Постоянная отметка: состав акта правили после утверждения бригадиром -->
+                <TextView
+                    android:id="@+id/tvCorrectedBadge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:textSize="12sp"
+                    android:textColor="#000000"
+                    android:paddingHorizontal="10dp"
+                    android:paddingVertical="4dp"
+                    android:background="#FBBF24"
+                    android:visibility="gone"/>
+
                 <!-- Banner: brigade foreman edited materials, awaiting acknowledgement -->
                 <LinearLayout
                     android:id="@+id/bannerAcknowledge"
@@ -120,12 +133,19 @@
                     android:textColor="#6B7280"
                     android:visibility="gone"/>
 
-                <LinearLayout
-                    android:id="@+id/layoutMaterials"
+                <HorizontalScrollView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:layout_marginTop="6dp"/>
+                    android:scrollbars="none"
+                    android:layout_marginTop="6dp">
+
+                    <LinearLayout
+                        android:id="@+id/layoutMaterials"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"/>
+
+                </HorizontalScrollView>
 
                 <TextView
                     android:id="@+id/tvTotal"

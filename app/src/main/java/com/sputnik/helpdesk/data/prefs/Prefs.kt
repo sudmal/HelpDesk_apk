@@ -36,6 +36,11 @@ class Prefs(context: Context) {
         get() = prefs.getString(KEY_SERVICE_TYPE_FILTER, null)
         set(v) = prefs.edit().putString(KEY_SERVICE_TYPE_FILTER, v).apply()
 
+    /** Quick-фильтр по территории на вкладках тикетов (null = "Все"). */
+    var selectedTicketTerritoryId: Int?
+        get() = prefs.getInt(KEY_TICKET_TERRITORY_FILTER, -1).takeIf { it != -1 }
+        set(v) = prefs.edit().putInt(KEY_TICKET_TERRITORY_FILTER, v ?: -1).apply()
+
     var syncIntervalMinutes: Int
         get() = prefs.getInt(KEY_SYNC_INTERVAL, 15)
         set(v) = prefs.edit().putInt(KEY_SYNC_INTERVAL, v).apply()
@@ -99,6 +104,7 @@ class Prefs(context: Context) {
         private const val KEY_ROLE                = "role"
         private const val KEY_SERVER_URL          = "server_url"
         private const val KEY_SERVICE_TYPE_FILTER = "service_type_filter"
+        private const val KEY_TICKET_TERRITORY_FILTER = "ticket_territory_filter"
         private const val KEY_NOTIFIED_IDS        = "notified_ticket_ids"
         private const val KEY_NOTIFIED_DATE       = "notified_ticket_date"
         private const val KEY_SYNC_INTERVAL       = "sync_interval"
