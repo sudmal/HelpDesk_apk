@@ -37,6 +37,7 @@ data class Ticket(
     val address: TicketAddress?,
     val territory: CRTerritory? = null,
     val type: String?,
+    val type_allows_promotion: Boolean = false,
     val service_type: ServiceType?,
     val status: TicketStatus?,
     val brigade: String?,

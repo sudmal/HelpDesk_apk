@@ -8,6 +8,8 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
@@ -20,6 +22,7 @@ import com.google.gson.Gson
 import com.sputnik.helpdesk.App
 import com.sputnik.helpdesk.data.api.RetrofitClient
 import com.sputnik.helpdesk.data.db.AppDatabase
+import com.sputnik.helpdesk.data.model.Promotion
 import com.sputnik.helpdesk.data.prefs.Prefs
 import com.sputnik.helpdesk.databinding.SheetCloseTicketBinding
 import kotlinx.coroutines.Dispatchers
@@ -42,6 +45,8 @@ class CloseTicketSheet : BottomSheetDialogFragment() {
     private lateinit var photoAdapter: PhotoThumbnailAdapter
     private var ticketId: Int = -1
     private var pendingCameraUri: Uri? = null
+    private var promotions: List<Promotion> = emptyList()
+    private var typeAllowsPromotion: Boolean = false
 
     // --- Activity result launchers (must be registered before onStart) ---
 
@@ -74,6 +79,7 @@ class CloseTicketSheet : BottomSheetDialogFragment() {
         materialAdapter = MaterialPickerAdapter(emptyList()) {
             updateActTypeVisibility()
             updateTotal()
+            updatePromotionVisibility()
         }
         binding.rvMaterials.layoutManager = LinearLayoutManager(requireContext())
         binding.rvMaterials.adapter = materialAdapter
@@ -89,6 +95,28 @@ class CloseTicketSheet : BottomSheetDialogFragment() {
             materialAdapter.updateCatalog(materials)
         }
 
+        lifecycleScope.launch {
+            try {
+                val api = RetrofitClient.create(Prefs(requireContext()))
+                val ticket = api.getTicket(ticketId)
+                if (ticket.type_allows_promotion) {
+                    typeAllowsPromotion = true
+                    promotions = api.getPromotions()
+                    setupPromotionSpinner()
+                    updatePromotionVisibility()
+                }
+            } catch (_: Exception) { /* акции необязательны — селектор просто не показываем */ }
+        }
+
+        binding.rgActType.setOnCheckedChangeListener { _, _ -> updatePromotionVisibility() }
+
+        binding.spinnerPromotion.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                updatePromotionPay()
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+
         binding.btnAddMaterial.setOnClickListener { materialAdapter.addRow() }
 
         binding.btnAddPhoto.setOnClickListener { showPhotoSourceDialog() }
@@ -99,6 +127,47 @@ class CloseTicketSheet : BottomSheetDialogFragment() {
     private fun updateActTypeVisibility() {
         binding.layoutActType.visibility =
             if (materialAdapter.itemCount > 0) View.VISIBLE else View.GONE
+    }
+
+    private fun selectedActType(): String? = when (binding.rgActType.checkedRadioButtonId) {
+        binding.rbActRegular.id -> "regular"
+        binding.rbActRepair.id  -> "repair"
+        else                    -> null
+    }
+
+    private fun setupPromotionSpinner() {
+        val names = listOf("Без акции") + promotions.map { "${it.name} — %.2f руб.".format(it.price) }
+        binding.spinnerPromotion.adapter = ArrayAdapter(
+            requireContext(), android.R.layout.simple_spinner_item, names
+        ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+    }
+
+    private fun selectedPromotion(): Promotion? {
+        val pos = binding.spinnerPromotion.selectedItemPosition
+        return promotions.getOrNull(pos - 1)
+    }
+
+    private fun updatePromotionVisibility() {
+        val showPromotion = typeAllowsPromotion &&
+            promotions.isNotEmpty() &&
+            materialAdapter.itemCount > 0 &&
+            selectedActType() == "regular"
+        binding.tvPromotionLabel.visibility = if (showPromotion) View.VISIBLE else View.GONE
+        binding.spinnerPromotion.visibility = if (showPromotion) View.VISIBLE else View.GONE
+        if (!showPromotion) {
+            binding.spinnerPromotion.setSelection(0)
+        }
+        updatePromotionPay()
+    }
+
+    private fun updatePromotionPay() {
+        val promo = selectedPromotion()
+        if (binding.spinnerPromotion.visibility == View.VISIBLE && promo != null) {
+            binding.tvPromotionPay.text = "Абонент платит: %.2f руб.".format(promo.price)
+            binding.tvPromotionPay.visibility = View.VISIBLE
+        } else {
+            binding.tvPromotionPay.visibility = View.GONE
+        }
     }
 
     private fun updateTotal() {
@@ -154,11 +223,7 @@ class CloseTicketSheet : BottomSheetDialogFragment() {
             return
         }
 
-        val actType: String? = when (binding.rgActType.checkedRadioButtonId) {
-            binding.rbActRegular.id -> "regular"
-            binding.rbActRepair.id  -> "repair"
-            else                    -> null
-        }
+        val actType: String? = selectedActType()
         if (items.isNotEmpty() && actType == null) {
             Snackbar.make(binding.root, "Выберите тип акта", Snackbar.LENGTH_SHORT).show()
             return
@@ -166,6 +231,7 @@ class CloseTicketSheet : BottomSheetDialogFragment() {
 
         val notes  = binding.etCloseNotes.text?.toString()?.trim()?.takeIf { it.isNotEmpty() }
         val photos = photoAdapter.getPhotos()
+        val promotionId = if (binding.spinnerPromotion.visibility == View.VISIBLE) selectedPromotion()?.id else null
 
         setLoading(true)
         val ctx = requireContext()
@@ -177,8 +243,9 @@ class CloseTicketSheet : BottomSheetDialogFragment() {
                 val plain = "text/plain".toMediaType()
 
                 val fields = mutableMapOf<String, RequestBody>()
-                notes?.let   { fields["close_notes"] = it.toRequestBody(plain) }
-                actType?.let { fields["act_type"]     = it.toRequestBody(plain) }
+                notes?.let       { fields["close_notes"]  = it.toRequestBody(plain) }
+                actType?.let     { fields["act_type"]     = it.toRequestBody(plain) }
+                promotionId?.let { fields["promotion_id"] = it.toString().toRequestBody(plain) }
                 items.forEachIndexed { i, item ->
                     fields["materials[$i][material_id]"] = item.material_id.toString().toRequestBody(plain)
                     fields["materials[$i][quantity]"]    = item.quantity.toString().toRequestBody(plain)
@@ -208,7 +275,8 @@ class CloseTicketSheet : BottomSheetDialogFragment() {
                 val serverDetail = runCatching { e.response()?.errorBody()?.string() }.getOrNull()
                 val msg = when (e.code()) {
                     403  -> "Нет прав для закрытия заявки"
-                    422  -> "Ошибка: ${serverDetail?.take(120) ?: "проверьте заполненные поля"}"
+                    422  -> serverDetail?.let { extractFieldError(it, "promotion_id") }
+                        ?: "Ошибка: ${serverDetail?.take(120) ?: "проверьте заполненные поля"}"
                     else -> "Ошибка сервера ${e.code()}"
                 }
                 Toast.makeText(ctx, msg, Toast.LENGTH_LONG).show()
@@ -220,6 +288,13 @@ class CloseTicketSheet : BottomSheetDialogFragment() {
             }
         }
     }
+
+    private fun extractFieldError(errorBody: String, field: String): String? = runCatching {
+        val json = com.google.gson.JsonParser.parseString(errorBody).asJsonObject
+        val errors = json.getAsJsonObject("errors") ?: return null
+        val fieldErrors = errors.getAsJsonArray(field) ?: return null
+        fieldErrors.firstOrNull()?.asString
+    }.getOrNull()
 
     private fun setLoading(loading: Boolean) {
         binding.btnSubmitClose.isEnabled = !loading

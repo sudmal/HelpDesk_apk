@@ -84,6 +84,48 @@
                 android:textSize="14sp"
                 android:textColor="#F59E0B"/>
 
+            <!-- Блок акта — виден, если у заявки есть акт, независимо от статуса заявки
+                 (акт переживает переоткрытие заявки, POST /tickets/{id}/reopen) -->
+            <LinearLayout
+                android:id="@+id/blockAct"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="#0D2B1D"
+                android:padding="12dp"
+                android:layout_marginTop="8dp"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/tvActNumber"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textSize="14sp"
+                    android:textColor="#4ADE80"/>
+
+                <TextView
+                    android:id="@+id/tvPromotionBadge"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:textColor="#FBBF24"
+                    android:visibility="gone"/>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnOpenAct"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="Открыть акт"
+                    android:textColor="#4ADE80"
+                    app:strokeColor="#4ADE80"
+                    app:strokeWidth="1dp"
+                    android:visibility="gone"/>
+            </LinearLayout>
+
             <!-- Блок закрытия — виден только для финальных заявок -->
             <LinearLayout
                 android:id="@+id/blockClosed"
@@ -102,14 +144,6 @@
                     android:textSize="14sp"
                     android:textStyle="bold"
                     android:textColor="#4ADE80"/>
-
-                <TextView
-                    android:id="@+id/tvActNumber"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:textSize="14sp"
-                    android:textColor="#4ADE80"
-                    android:layout_marginTop="2dp"/>
 
                 <TextView
                     android:id="@+id/tvCloseNotesLabel"
@@ -137,18 +171,6 @@
                     android:textSize="14sp"
                     android:textColor="#D1D5DB"
                     android:layout_marginTop="4dp"
-                    android:visibility="gone"/>
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnOpenAct"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:text="Открыть акт"
-                    android:textColor="#4ADE80"
-                    app:strokeColor="#4ADE80"
-                    app:strokeWidth="1dp"
                     android:visibility="gone"/>
             </LinearLayout>
 

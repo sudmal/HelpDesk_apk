@@ -130,6 +130,35 @@
             </RadioGroup>
         </LinearLayout>
 
+        <!-- Promotion selector: only shown for ticket types that allow it -->
+        <TextView
+            android:id="@+id/tvPromotionLabel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Акция"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="#BBBBBB"
+            android:layout_marginTop="16dp"
+            android:visibility="gone"/>
+
+        <Spinner
+            android:id="@+id/spinnerPromotion"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:visibility="gone"/>
+
+        <TextView
+            android:id="@+id/tvPromotionPay"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="#FBBF24"
+            android:visibility="gone"/>
+
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

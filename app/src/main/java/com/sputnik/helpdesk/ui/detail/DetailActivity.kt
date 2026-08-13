@@ -166,7 +166,7 @@ class DetailActivity : AppCompatActivity() {
 
             supportActionBar?.title = entity.number
             with(binding) {
-                tvAddress.text     = entity.addressFull ?: "Адрес не указан"
+                tvAddress.text     = buildAddressText(entity.addressFull, entity.apartment)
                 tvType.text        = "Тип: ${entity.typeName ?: "—"}"
                 tvStatus.text      = "Статус: ${entity.statusName ?: "—"}"
                 tvPhone.text       = "Тел: ${entity.phone ?: "—"}"
@@ -189,9 +189,8 @@ class DetailActivity : AppCompatActivity() {
                 closedAt   = entity.closedAt,
                 closedBy   = entity.closedBy,
                 closeNotes = entity.closeNotes,
-                actNumber  = entity.actNumber,
-                actId      = entity.actId,
             )
+            applyActBlock(entity.actId, entity.actNumber, promoName = null, promoPrice = null)
 
             try {
                 val fresh = RetrofitClient.create(Prefs(this@DetailActivity)).getTicket(ticketId)
@@ -202,6 +201,7 @@ class DetailActivity : AppCompatActivity() {
 
     private fun applyFreshTicket(fresh: Ticket) {
         with(binding) {
+            tvAddress.text  = buildAddressText(fresh.address?.full, fresh.apartment)
             tvTime.text     = "Время: ${formatTime(fresh.scheduled_at)}"
             tvStatus.text   = "Статус: ${fresh.status?.name ?: "—"}"
             tvBrigade.text  = "Бригада: ${fresh.brigade ?: "—"}"
@@ -211,7 +211,8 @@ class DetailActivity : AppCompatActivity() {
         applyServiceTypeChip(fresh.service_type?.name, fresh.service_type?.color)
 
         val isFinal = fresh.status?.is_final ?: false
-        applyFinalState(isFinal, fresh.closed_at, fresh.closed_by, fresh.close_notes, fresh.act_number, fresh.act?.id)
+        applyFinalState(isFinal, fresh.closed_at, fresh.closed_by, fresh.close_notes)
+        applyActBlock(fresh.act?.id, fresh.act_number, fresh.act?.promotion_name, fresh.act?.promotion_price)
 
         if (fresh.comments.isNotEmpty()) commentAdapter.submitList(fresh.comments)
 
@@ -245,25 +246,36 @@ class DetailActivity : AppCompatActivity() {
         }
     }
 
-    private fun applyFinalState(isFinal: Boolean, closedAt: String?, closedBy: String?, closeNotes: String?, actNumber: String?, actId: Int?) {
+    private fun applyActBlock(actId: Int?, actNumber: String?, promoName: String?, promoPrice: Double?) {
+        if (actId != null) {
+            binding.blockAct.visibility = View.VISIBLE
+            binding.tvActNumber.text    = "Акт: ${actNumber ?: "б/а"}"
+
+            binding.btnOpenAct.visibility = View.VISIBLE
+            binding.btnOpenAct.setOnClickListener {
+                startActivity(Intent(this@DetailActivity, com.sputnik.helpdesk.ui.act.ActActivity::class.java).apply {
+                    putExtra(com.sputnik.helpdesk.ui.act.ActActivity.EXTRA_ACT_ID, actId)
+                })
+            }
+
+            if (promoName != null && promoPrice != null) {
+                binding.tvPromotionBadge.text = "🎁 Акция «$promoName» — к оплате %.2f руб.".format(promoPrice)
+                binding.tvPromotionBadge.visibility = View.VISIBLE
+            } else {
+                binding.tvPromotionBadge.visibility = View.GONE
+            }
+        } else {
+            binding.blockAct.visibility = View.GONE
+        }
+    }
+
+    private fun applyFinalState(isFinal: Boolean, closedAt: String?, closedBy: String?, closeNotes: String?) {
         // Комментарии доступны независимо от статуса заявки — сервер их по статусу не ограничивает.
         binding.panelComment.visibility = View.VISIBLE
 
         if (isFinal) {
             binding.blockClosed.visibility  = View.VISIBLE
             binding.tvClosedAt.text         = "Закрыто: ${formatDateTime(closedAt) ?: "—"}"
-            binding.tvActNumber.text        = "Акт: ${actNumber ?: "б/а"}"
-
-            if (actId != null) {
-                binding.btnOpenAct.visibility = View.VISIBLE
-                binding.btnOpenAct.setOnClickListener {
-                    startActivity(Intent(this@DetailActivity, com.sputnik.helpdesk.ui.act.ActActivity::class.java).apply {
-                        putExtra(com.sputnik.helpdesk.ui.act.ActActivity.EXTRA_ACT_ID, actId)
-                    })
-                }
-            } else {
-                binding.btnOpenAct.visibility = View.GONE
-            }
 
             val hasCloseSection = !closeNotes.isNullOrEmpty() || closedBy != null
             binding.tvCloseNotesLabel.visibility = if (hasCloseSection) View.VISIBLE else View.GONE
@@ -285,6 +297,14 @@ class DetailActivity : AppCompatActivity() {
         } else {
             binding.blockClosed.visibility       = View.GONE
         }
+    }
+
+    private fun buildAddressText(addressFull: String?, apartment: String?): String {
+        val parts = buildList {
+            addressFull?.let { add(it) }
+            apartment?.let { add("кв.$it") }
+        }
+        return parts.joinToString(", ").ifEmpty { "Адрес не указан" }
     }
 
     private fun buildClosedByAtText(closedBy: String, closedAt: String?): String {
