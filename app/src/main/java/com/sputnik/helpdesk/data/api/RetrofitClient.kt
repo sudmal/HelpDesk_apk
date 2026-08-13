@@ -1,5 +1,6 @@
 package com.sputnik.helpdesk.data.api
 
+import com.google.gson.GsonBuilder
 import com.sputnik.helpdesk.App
 import com.sputnik.helpdesk.BuildConfig
 import com.sputnik.helpdesk.data.prefs.Prefs
@@ -40,7 +41,7 @@ object RetrofitClient {
         return Retrofit.Builder()
             .baseUrl(baseUrl)
             .client(client)
-            .addConverterFactory(GsonConverterFactory.create())
+            .addConverterFactory(GsonConverterFactory.create(GsonBuilder().serializeNulls().create()))
             .build()
             .create(ApiService::class.java)
     }

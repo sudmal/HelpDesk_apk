@@ -167,6 +167,26 @@
                     android:textColor="#FBBF24"
                     android:visibility="gone"/>
 
+                <!-- Промо-акция: селектор виден, только когда can.edit_materials и тип
+                     заявки/подключения допускает акцию -->
+                <TextView
+                    android:id="@+id/tvActPromotionLabel"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Акция"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:textColor="#BBBBBB"
+                    android:layout_marginTop="10dp"
+                    android:visibility="gone"/>
+
+                <Spinner
+                    android:id="@+id/spinnerActPromotion"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:visibility="gone"/>
+
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnAddMaterial"
                     style="@style/Widget.MaterialComponents.Button.OutlinedButton"

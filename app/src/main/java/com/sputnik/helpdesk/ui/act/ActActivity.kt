@@ -5,6 +5,8 @@ import android.graphics.Color
 import android.os.Bundle
 import android.text.InputType
 import android.view.View
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -21,7 +23,9 @@ import com.sputnik.helpdesk.data.model.Act
 import com.sputnik.helpdesk.data.model.ActHistoryEntry
 import com.sputnik.helpdesk.data.model.ActMaterial
 import com.sputnik.helpdesk.data.model.MaterialItem
+import com.sputnik.helpdesk.data.model.Promotion
 import com.sputnik.helpdesk.data.model.UpdateActMaterialReq
+import com.sputnik.helpdesk.data.model.UpdateActPromotionReq
 import com.sputnik.helpdesk.data.prefs.Prefs
 import com.sputnik.helpdesk.databinding.ActivityActBinding
 import com.sputnik.helpdesk.ui.main.TicketAdapter
@@ -34,6 +38,9 @@ class ActActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityActBinding
     private var actId: Int = -1
+    private var currentAct: Act? = null
+    private var promotions: List<Promotion> = emptyList()
+    private var promotionSelectorSuppressed = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -58,6 +65,16 @@ class ActActivity : AppCompatActivity() {
         binding.btnAcknowledge.setOnClickListener { acknowledge() }
         binding.btnAddMaterial.setOnClickListener { showAddMaterialDialog() }
 
+        binding.spinnerActPromotion.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                if (promotionSelectorSuppressed) return
+                val newId = promotions.getOrNull(position - 1)?.id
+                if (newId == currentAct?.promotion_id) return
+                updatePromotion(newId)
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+
         load()
     }
 
@@ -76,7 +93,8 @@ class ActActivity : AppCompatActivity() {
         }
     }
 
-    private fun applyData(act: Act) {
+    private suspend fun applyData(act: Act) {
+        currentAct = act
         binding.layoutContent.visibility = View.VISIBLE
         supportActionBar?.title = "Акт № ${act.number}"
 
@@ -101,7 +119,7 @@ class ActActivity : AppCompatActivity() {
         binding.panelActions.visibility = if (act.can.foreman_review) View.VISIBLE else View.GONE
 
         applyMaterials(act.materials, act.can.edit_materials)
-        applyPromotion(act.promotion_name, act.promotion_price)
+        applyPromotionUi(act)
         applyHistory(act.history)
 
         lifecycleScope.launch { syncActToCache(act) }
@@ -247,12 +265,83 @@ class ActActivity : AppCompatActivity() {
 
     private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
 
-    private fun applyPromotion(name: String?, price: Double?) {
+    /** Read-only summary badge — shown when the promotion selector isn't editable. */
+    private fun applyPromotionBadge(name: String?, price: Double?) {
         if (name != null && price != null) {
             binding.tvPromotionBadge.text = "🎁 Акция «$name» — к оплате ${fmt(price)} руб."
             binding.tvPromotionBadge.visibility = View.VISIBLE
         } else {
             binding.tvPromotionBadge.visibility = View.GONE
+        }
+    }
+
+    /**
+     * Selector visible only when materials are editable AND the promotion is applicable —
+     * connection-request acts always allow it, ticket acts only when the underlying
+     * ticket has `type_allows_promotion == true` (see PUT /acts/{id}/promotion in API_MOBILE.md).
+     */
+    private suspend fun applyPromotionUi(act: Act) {
+        val eligible = act.can.edit_materials && isPromotionEligible(act)
+        if (!eligible) {
+            binding.tvActPromotionLabel.visibility = View.GONE
+            binding.spinnerActPromotion.visibility = View.GONE
+            applyPromotionBadge(act.promotion_name, act.promotion_price)
+            return
+        }
+
+        if (promotions.isEmpty()) {
+            promotions = try {
+                RetrofitClient.create(Prefs(this@ActActivity)).getPromotions()
+            } catch (_: Exception) { emptyList() }
+        }
+        if (promotions.isEmpty()) {
+            binding.tvActPromotionLabel.visibility = View.GONE
+            binding.spinnerActPromotion.visibility = View.GONE
+            applyPromotionBadge(act.promotion_name, act.promotion_price)
+            return
+        }
+
+        binding.tvPromotionBadge.visibility = View.GONE
+
+        val names = listOf("Без акции") + promotions.map { "${it.name} — ${fmt(it.price)} руб." }
+        promotionSelectorSuppressed = true
+        binding.spinnerActPromotion.adapter = ArrayAdapter(
+            this, android.R.layout.simple_spinner_item, names
+        ).apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+        val selectedIndex = promotions.indexOfFirst { it.id == act.promotion_id }
+        binding.spinnerActPromotion.setSelection(if (selectedIndex >= 0) selectedIndex + 1 else 0)
+        promotionSelectorSuppressed = false
+
+        binding.tvActPromotionLabel.visibility = View.VISIBLE
+        binding.spinnerActPromotion.visibility = View.VISIBLE
+    }
+
+    private suspend fun isPromotionEligible(act: Act): Boolean {
+        if (act.connection_request_id != null) return true
+        val ticketId = act.ticket_id ?: return false
+        return try {
+            RetrofitClient.create(Prefs(this@ActActivity)).getTicket(ticketId).type_allows_promotion
+        } catch (_: Exception) { false }
+    }
+
+    private fun updatePromotion(promotionId: Int?) {
+        lifecycleScope.launch {
+            try {
+                val updated = RetrofitClient.create(Prefs(this@ActActivity))
+                    .updateActPromotion(actId, UpdateActPromotionReq(promotionId))
+                applyData(updated)
+                Snackbar.make(
+                    binding.root,
+                    if (promotionId != null) "Акция назначена" else "Акция снята",
+                    Snackbar.LENGTH_SHORT
+                ).show()
+            } catch (e: HttpException) {
+                showApiError(e)
+                currentAct?.let { applyPromotionUi(it) }
+            } catch (_: Exception) {
+                Snackbar.make(binding.root, "Нет соединения", Snackbar.LENGTH_SHORT).show()
+                currentAct?.let { applyPromotionUi(it) }
+            }
         }
     }
 

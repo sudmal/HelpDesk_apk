@@ -130,6 +130,12 @@ interface ApiService {
     @POST("acts/{id}/acknowledge")
     suspend fun acknowledgeAct(@Path("id") actId: Int): Act
 
+    @PUT("acts/{id}/promotion")
+    suspend fun updateActPromotion(
+        @Path("id") actId: Int,
+        @Body request: UpdateActPromotionReq,
+    ): Act
+
     // --- Profile ---
 
     @GET("profile")

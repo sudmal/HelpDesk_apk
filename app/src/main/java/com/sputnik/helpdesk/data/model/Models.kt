@@ -174,6 +174,7 @@ data class Act(
     val foreman_reviewed_by: String?,
     val materials_changed_at: String?,
     val materials_corrected_at: String? = null,
+    val promotion_id: Int? = null,
     val promotion_name: String? = null,
     val promotion_price: Double? = null,
     val materials: List<ActMaterial> = emptyList(),
@@ -182,6 +183,8 @@ data class Act(
 )
 
 data class UpdateActMaterialReq(val quantity: Double)
+
+data class UpdateActPromotionReq(val promotion_id: Int?)
 
 /** Lightweight row for the "Акты" list screen — GET /acts. Full details via GET /acts/{id}. */
 data class ActListItem(
