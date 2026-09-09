@@ -317,5 +317,31 @@
                 android:textColor="#FFFFFF"/>
 
         </LinearLayout>
+
+        <!-- Кнопка переоткрытия — видна только для финальной заявки при ticket.can.reopen -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnReopenTicket"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="8dp"
+            android:text="↻ Переоткрыть заявку"
+            android:textColor="#42A5F5"
+            app:strokeColor="#42A5F5"
+            app:strokeWidth="1dp"
+            android:visibility="gone"/>
+
+        <!-- Кнопка отмены — видна только бригадиру, пока заявка не в финальном статусе -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnCancelTicket"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="8dp"
+            android:text="✕ Отменить заявку"
+            android:textColor="#EF4444"
+            app:strokeColor="#EF4444"
+            app:strokeWidth="1dp"
+            android:visibility="gone"/>
     </LinearLayout>
 </LinearLayout>

@@ -25,6 +25,18 @@ object CrashLogger {
         }
     }
 
+    /** Appends a non-fatal diagnostic entry to the same log file used for crashes. */
+    fun log(context: Context, message: String, throwable: Throwable? = null) {
+        try {
+            val file = File(context.applicationContext.filesDir, LOG_FILE)
+            if (file.exists() && file.length() > MAX_BYTES) file.delete()
+            val ts = LocalDateTime.now()
+                .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+            val trace = throwable?.let { "\n${it.stackTraceToString()}" } ?: ""
+            file.appendText("--- $ts (non-fatal) ---\n$message$trace\n\n")
+        } catch (_: Exception) { }
+    }
+
     fun getLog(context: Context): String =
         File(context.filesDir, LOG_FILE).takeIf { it.exists() }?.readText() ?: ""
 

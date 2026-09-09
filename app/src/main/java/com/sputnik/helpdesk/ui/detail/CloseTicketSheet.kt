@@ -1,6 +1,7 @@
 package com.sputnik.helpdesk.ui.detail
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
@@ -25,6 +26,8 @@ import com.sputnik.helpdesk.data.db.AppDatabase
 import com.sputnik.helpdesk.data.model.Promotion
 import com.sputnik.helpdesk.data.prefs.Prefs
 import com.sputnik.helpdesk.databinding.SheetCloseTicketBinding
+import com.sputnik.helpdesk.ui.act.ActActivity
+import com.sputnik.helpdesk.util.parseServerMessage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -99,6 +102,19 @@ class CloseTicketSheet : BottomSheetDialogFragment() {
             try {
                 val api = RetrofitClient.create(Prefs(requireContext()))
                 val ticket = api.getTicket(ticketId)
+                val existingAct = ticket.act
+                if (existingAct != null) {
+                    binding.layoutMaterialsSection.visibility = View.GONE
+                    binding.layoutExistingAct.visibility = View.VISIBLE
+                    binding.tvExistingActNotice.text =
+                        "По заявке уже есть акт № ${existingAct.number} — материалы редактируются на его странице"
+                    binding.btnOpenExistingAct.setOnClickListener {
+                        startActivity(Intent(requireContext(), ActActivity::class.java).apply {
+                            putExtra(ActActivity.EXTRA_ACT_ID, existingAct.id)
+                        })
+                    }
+                    return@launch
+                }
                 if (ticket.type_allows_promotion) {
                     typeAllowsPromotion = true
                     promotions = api.getPromotions()
@@ -271,10 +287,10 @@ class CloseTicketSheet : BottomSheetDialogFragment() {
                 }
                 dismiss()
             } catch (e: HttpException) {
-                Log.e("CloseTicket", "HTTP ${e.code()}: ${e.response()?.errorBody()?.string()}")
                 val serverDetail = runCatching { e.response()?.errorBody()?.string() }.getOrNull()
+                Log.e("CloseTicket", "HTTP ${e.code()}: $serverDetail")
                 val msg = when (e.code()) {
-                    403  -> "Нет прав для закрытия заявки"
+                    403  -> parseServerMessage(serverDetail, "Нет прав для закрытия заявки")
                     422  -> serverDetail?.let { extractFieldError(it, "promotion_id") }
                         ?: "Ошибка: ${serverDetail?.take(120) ?: "проверьте заполненные поля"}"
                     else -> "Ошибка сервера ${e.code()}"

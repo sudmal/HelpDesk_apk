@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
@@ -26,10 +27,13 @@ import com.sputnik.helpdesk.data.model.Comment
 import com.sputnik.helpdesk.data.model.Ticket
 import com.sputnik.helpdesk.data.prefs.Prefs
 import com.sputnik.helpdesk.databinding.ActivityDetailBinding
+import com.sputnik.helpdesk.App
 import com.sputnik.helpdesk.ui.main.TicketAdapter
+import com.sputnik.helpdesk.util.parseServerMessage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import retrofit2.HttpException
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
@@ -107,6 +111,10 @@ class DetailActivity : AppCompatActivity() {
         binding.btnReschedule.setOnClickListener {
             RescheduleSheet.newInstance(ticketId).show(supportFragmentManager, "reschedule")
         }
+        binding.btnCancelTicket.setOnClickListener {
+            CancelTicketSheet.newInstance(ticketId).show(supportFragmentManager, "cancel")
+        }
+        binding.btnReopenTicket.setOnClickListener { confirmReopen() }
     }
 
     private fun addCommentPhoto(uri: Uri) {
@@ -191,6 +199,9 @@ class DetailActivity : AppCompatActivity() {
                 closeNotes = entity.closeNotes,
             )
             applyActBlock(entity.actId, entity.actNumber, promoName = null, promoPrice = null)
+            applyCancelButtonVisibility(entity.statusIsFinal)
+            // can.reopen приходит только со свежим объектом — до ответа сервера кнопку «Переоткрыть» прячем
+            applyStatusActionsVisibility(entity.statusIsFinal, canReopen = false)
 
             try {
                 val fresh = RetrofitClient.create(Prefs(this@DetailActivity)).getTicket(ticketId)
@@ -213,6 +224,10 @@ class DetailActivity : AppCompatActivity() {
         val isFinal = fresh.status?.is_final ?: false
         applyFinalState(isFinal, fresh.closed_at, fresh.closed_by, fresh.close_notes)
         applyActBlock(fresh.act?.id, fresh.act_number, fresh.act?.promotion_name, fresh.act?.promotion_price)
+        applyCancelButtonVisibility(isFinal)
+        // can отсутствует (старый бэкенд) -> показываем «Переоткрыть» на любой финальной заявке,
+        // сервер всё равно проверит право и вернёт понятный 403. reopen == false -> прячем строго.
+        applyStatusActionsVisibility(isFinal, canReopen = fresh.can?.reopen != false)
 
         if (fresh.comments.isNotEmpty()) commentAdapter.submitList(fresh.comments)
 
@@ -266,6 +281,57 @@ class DetailActivity : AppCompatActivity() {
             }
         } else {
             binding.blockAct.visibility = View.GONE
+        }
+    }
+
+    private fun applyCancelButtonVisibility(isFinal: Boolean) {
+        val isForeman = Prefs(this).userRole == "foreman"
+        binding.btnCancelTicket.visibility =
+            if (isForeman && !isFinal) View.VISIBLE else View.GONE
+    }
+
+    /**
+     * Финальная заявка: «Закрыть»/«Перенести» скрываем (сервер их всё равно
+     * отклонит), вместо них — «Переоткрыть». Рабочая заявка — наоборот.
+     */
+    private fun applyStatusActionsVisibility(isFinal: Boolean, canReopen: Boolean) {
+        binding.btnCloseTicket.visibility = if (isFinal) View.GONE else View.VISIBLE
+        binding.btnReschedule.visibility  = if (isFinal) View.GONE else View.VISIBLE
+        binding.btnReopenTicket.visibility = if (isFinal && canReopen) View.VISIBLE else View.GONE
+    }
+
+    private fun confirmReopen() {
+        AlertDialog.Builder(this)
+            .setTitle("Переоткрыть заявку?")
+            .setMessage("Заявка вернётся в статус «Новая». Её можно будет закрыть заново — например, чтобы указать материалы и тип акта.")
+            .setPositiveButton("Переоткрыть") { _, _ -> reopenTicket() }
+            .setNegativeButton("Отмена", null)
+            .show()
+    }
+
+    private fun reopenTicket() {
+        binding.btnReopenTicket.isEnabled = false
+        lifecycleScope.launch {
+            try {
+                val updated = RetrofitClient.create(Prefs(this@DetailActivity)).reopenTicket(ticketId)
+                App.ticketUpdatedEvent.postValue(Unit)
+                applyFreshTicket(updated)
+                updateCache(updated)
+                Snackbar.make(binding.root, "Заявка переоткрыта", Snackbar.LENGTH_SHORT).show()
+            } catch (e: HttpException) {
+                val body = runCatching { e.response()?.errorBody()?.string() }.getOrNull()
+                Log.e("DetailActivity", "reopen HTTP ${e.code()}: $body")
+                val msg = when (e.code()) {
+                    403  -> parseServerMessage(body, "Нет прав для переоткрытия заявки")
+                    else -> "Ошибка сервера ${e.code()}"
+                }
+                Snackbar.make(binding.root, msg, Snackbar.LENGTH_LONG).show()
+            } catch (e: Exception) {
+                Log.e("DetailActivity", "reopen error", e)
+                Snackbar.make(binding.root, "Ошибка: ${e.message ?: "нет связи с сервером"}", Snackbar.LENGTH_LONG).show()
+            } finally {
+                binding.btnReopenTicket.isEnabled = true
+            }
         }
     }
 

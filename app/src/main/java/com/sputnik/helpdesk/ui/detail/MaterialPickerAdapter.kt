@@ -4,7 +4,6 @@ import android.text.Editable
 import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.ViewGroup
-import androidx.appcompat.app.AlertDialog
 import androidx.recyclerview.widget.RecyclerView
 import com.sputnik.helpdesk.data.db.MaterialEntity
 import com.sputnik.helpdesk.data.model.MaterialItem
@@ -92,17 +91,13 @@ class MaterialPickerAdapter(
             btnSelectMaterial.setOnClickListener {
                 val pos = holder.adapterPosition
                 if (pos == RecyclerView.NO_POSITION || catalog.isEmpty()) return@setOnClickListener
-                val dialogLabels = catalog.map { dialogLabel(it) }.toTypedArray()
-                AlertDialog.Builder(holder.itemView.context)
-                    .setTitle("Выберите материал")
-                    .setItems(dialogLabels) { _, idx ->
-                        rows[pos].material = catalog[idx]
-                        tilQuantity.suffixText = catalog[idx].unit
-                        btnSelectMaterial.text = shortLabel(catalog[idx])
-                        updateLineTotal(tvLineTotal, rows[pos])
-                        onRowsChanged?.invoke()
-                    }
-                    .show()
+                MaterialSelectDialog.show(holder.itemView.context, catalog) { material ->
+                    rows[pos].material = material
+                    tilQuantity.suffixText = material.unit
+                    btnSelectMaterial.text = shortLabel(material)
+                    updateLineTotal(tvLineTotal, rows[pos])
+                    onRowsChanged?.invoke()
+                }
             }
 
             btnRemoveMaterial.setOnClickListener {
@@ -111,10 +106,6 @@ class MaterialPickerAdapter(
             }
         }
     }
-
-    /** Full label shown in the "Выберите материал" picker dialog — code and price help tell near-identical items apart. */
-    private fun dialogLabel(m: MaterialEntity): String =
-        "${m.name} [${m.code}] — %.2f руб./%s".format(m.price, m.unit)
 
     /** Compact label shown on the row button once a material is selected. */
     private fun shortLabel(m: MaterialEntity): String = "${m.name} (${m.unit})"

@@ -21,8 +21,8 @@ class SettingsActivity : AppCompatActivity() {
     private val syncIntervalOptions = listOf(15, 30, 60)
     private val syncIntervalLabels  = listOf("15 минут", "30 минут", "1 час")
 
-    private val sortOptions = listOf(Prefs.SORT_BY_TIME, Prefs.SORT_BY_ADDRESS, Prefs.SORT_BY_SERVICE)
-    private val sortLabels  = listOf("По времени", "По адресу", "По типу участка")
+    private val sortOptions = listOf(Prefs.SORT_BY_TIME, Prefs.SORT_BY_ADDRESS, Prefs.SORT_BY_SERVICE, Prefs.SORT_BY_STATUS)
+    private val sortLabels  = listOf("По времени", "По адресу", "По типу участка", "По статусу")
 
     private val closedConnRetentionOptions = listOf(6, 12, 24, 72, 168)
     private val closedConnRetentionLabels  = listOf("6 часов", "12 часов", "1 сутки", "3 суток", "7 суток")

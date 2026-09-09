@@ -28,6 +28,8 @@ import com.sputnik.helpdesk.data.model.UpdateActMaterialReq
 import com.sputnik.helpdesk.data.model.UpdateActPromotionReq
 import com.sputnik.helpdesk.data.prefs.Prefs
 import com.sputnik.helpdesk.databinding.ActivityActBinding
+import com.sputnik.helpdesk.ui.detail.MaterialSelectDialog
+import com.sputnik.helpdesk.util.parseServerMessage
 import com.sputnik.helpdesk.ui.main.TicketAdapter
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
@@ -281,7 +283,7 @@ class ActActivity : AppCompatActivity() {
      * ticket has `type_allows_promotion == true` (see PUT /acts/{id}/promotion in API_MOBILE.md).
      */
     private suspend fun applyPromotionUi(act: Act) {
-        val eligible = act.can.edit_materials && isPromotionEligible(act)
+        val eligible = act.can.edit_materials && act.promotion_eligible
         if (!eligible) {
             binding.tvActPromotionLabel.visibility = View.GONE
             binding.spinnerActPromotion.visibility = View.GONE
@@ -314,14 +316,6 @@ class ActActivity : AppCompatActivity() {
 
         binding.tvActPromotionLabel.visibility = View.VISIBLE
         binding.spinnerActPromotion.visibility = View.VISIBLE
-    }
-
-    private suspend fun isPromotionEligible(act: Act): Boolean {
-        if (act.connection_request_id != null) return true
-        val ticketId = act.ticket_id ?: return false
-        return try {
-            RetrofitClient.create(Prefs(this@ActActivity)).getTicket(ticketId).type_allows_promotion
-        } catch (_: Exception) { false }
     }
 
     private fun updatePromotion(promotionId: Int?) {
@@ -437,11 +431,7 @@ class ActActivity : AppCompatActivity() {
                 Snackbar.make(binding.root, "Справочник материалов пуст", Snackbar.LENGTH_SHORT).show()
                 return@launch
             }
-            val names = catalog.map { "${it.name} [${it.code}] — %.2f руб./%s".format(it.price, it.unit) }.toTypedArray()
-            AlertDialog.Builder(this@ActActivity)
-                .setTitle("Выберите материал")
-                .setItems(names) { _, idx -> promptQuantityForAdd(catalog[idx]) }
-                .show()
+            MaterialSelectDialog.show(this@ActActivity, catalog) { material -> promptQuantityForAdd(material) }
         }
     }
 
@@ -538,9 +528,10 @@ class ActActivity : AppCompatActivity() {
     }
 
     private fun showApiError(e: HttpException) {
+        val body = runCatching { e.response()?.errorBody()?.string() }.getOrNull()
         val msg = when (e.code()) {
-            403  -> "Нет прав для этого действия"
-            422  -> "Ошибка: ${runCatching { e.response()?.errorBody()?.string() }.getOrNull()?.take(120) ?: "проверьте данные"}"
+            403  -> parseServerMessage(body, "Нет прав для этого действия")
+            422  -> "Ошибка: ${body?.take(120) ?: "проверьте данные"}"
             else -> "Ошибка сервера ${e.code()}"
         }
         Snackbar.make(binding.root, msg, Snackbar.LENGTH_LONG).show()

@@ -20,12 +20,14 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.sputnik.helpdesk.data.api.RetrofitClient
 import com.sputnik.helpdesk.data.db.AppDatabase
+import com.sputnik.helpdesk.data.db.ConnectionRequestEntity
 import com.sputnik.helpdesk.data.db.TicketEntity
 import com.sputnik.helpdesk.data.db.dateGroup
 import com.sputnik.helpdesk.data.model.CRTerritory
 import com.sputnik.helpdesk.data.model.Ticket
 import com.sputnik.helpdesk.data.prefs.Prefs
 import com.sputnik.helpdesk.databinding.FragmentTicketsBinding
+import com.sputnik.helpdesk.ui.connections.ConnectionDetailActivity
 import com.sputnik.helpdesk.ui.detail.CloseTicketSheet
 import com.sputnik.helpdesk.ui.detail.DetailActivity
 import com.sputnik.helpdesk.ui.detail.RescheduleSheet
@@ -49,6 +51,13 @@ class TicketsFragment : Fragment() {
     private var cachedTerritories = listOf<CRTerritory>()
     private var hasLoadedOnce = false
 
+    // Последние данные из Room — держим их, чтобы пересобрать ленту при смене
+    // режима сортировки без ожидания нового эмита БД.
+    private var latestTickets: List<TicketEntity> = emptyList()
+    private var latestConnections: List<ConnectionRequestEntity> = emptyList()
+    private var latestServiceFilter: String? = null
+    private var latestTerritoryFilter: Int? = null
+
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentTicketsBinding.inflate(inflater, container, false)
         return binding.root
@@ -57,11 +66,18 @@ class TicketsFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         group = arguments?.getString(ARG_GROUP) ?: "today"
 
-        adapter = TicketAdapter { ticket ->
-            startActivity(Intent(requireContext(), DetailActivity::class.java).apply {
-                putExtra(DetailActivity.EXTRA_TICKET_ID, ticket.id)
-            })
-        }
+        adapter = TicketAdapter(
+            onTicketClick = { ticket ->
+                startActivity(Intent(requireContext(), DetailActivity::class.java).apply {
+                    putExtra(DetailActivity.EXTRA_TICKET_ID, ticket.id)
+                })
+            },
+            onConnectionClick = { conn ->
+                startActivity(Intent(requireContext(), ConnectionDetailActivity::class.java).apply {
+                    putExtra(ConnectionDetailActivity.EXTRA_ID, conn.id)
+                })
+            },
+        )
         binding.recycler.layoutManager = LinearLayoutManager(requireContext())
         binding.recycler.adapter = adapter
 
@@ -80,7 +96,8 @@ class TicketsFragment : Fragment() {
             populateTerritoryChips(cachedTerritories)
         }
 
-        // Room Flow: auto-update list when DB changes or filter changes
+        // Room Flow: авто-обновление ленты при изменении БД или фильтров.
+        // Заявки и назначенные подключения одного дня сливаются в одну ленту.
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 combine(
@@ -88,12 +105,20 @@ class TicketsFragment : Fragment() {
                     filterViewModel.selectedTerritoryId.asFlow(),
                 ) { filterName, territoryId -> filterName to territoryId }
                     .flatMapLatest { (filterName, territoryId) ->
-                        AppDatabase.get(requireContext()).ticketDao()
-                            .getByGroupFilteredFlow(group, filterName, territoryId)
+                        combine(
+                            AppDatabase.get(requireContext()).ticketDao()
+                                .getByGroupFilteredFlow(group, filterName, territoryId),
+                            AppDatabase.get(requireContext()).connectionRequestDao().getAllFlow(),
+                        ) { tickets, connections ->
+                            Triple(tickets, connections, filterName to territoryId)
+                        }
                     }
-                    .collect { tickets ->
-                        val sorted = sortTickets(tickets)
-                        showTickets(sorted)
+                    .collect { (tickets, connections, filter) ->
+                        latestTickets = tickets
+                        latestConnections = connections
+                        latestServiceFilter = filter.first
+                        latestTerritoryFilter = filter.second
+                        rebuildList()
                         if (!hasLoadedOnce) {
                             hasLoadedOnce = true
                             binding.progressInitial.visibility = View.GONE
@@ -103,33 +128,11 @@ class TicketsFragment : Fragment() {
         }
 
         // Re-sort when sort order changes without DB change
-        filterViewModel.sortOrder.observe(viewLifecycleOwner) {
-            showTickets(sortTickets(adapter.currentList))
-        }
+        filterViewModel.sortOrder.observe(viewLifecycleOwner) { rebuildList() }
 
         // Trigger network sync
         filterViewModel.syncTrigger.observe(viewLifecycleOwner) {
             syncFromServer()
-        }
-
-        binding.tvConnectionsBanner.setOnClickListener {
-            (activity as? MainActivity)?.goToConnectionsTab()
-        }
-
-        // Bright banner: approved (scheduled) connection requests due in this day bucket
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                AppDatabase.get(requireContext()).connectionRequestDao().getAllFlow()
-                    .collect { connections ->
-                        val count = connections.count { it.dateGroup() == group }
-                        if (count > 0) {
-                            binding.tvConnectionsBanner.text = "Подключений — $count!"
-                            binding.tvConnectionsBanner.visibility = View.VISIBLE
-                        } else {
-                            binding.tvConnectionsBanner.visibility = View.GONE
-                        }
-                    }
-            }
         }
 
         // Show loading indicator on first open
@@ -137,10 +140,43 @@ class TicketsFragment : Fragment() {
         syncFromServer()
     }
 
+    /** Собирает объединённую ленту дня из последних данных Room и текущего режима сортировки. */
+    private fun rebuildList() {
+        if (_binding == null) return
+        showItems(buildDayList())
+    }
+
+    private fun buildDayList(): List<DayListItem> {
+        val ticketItems = sortTickets(latestTickets).map { DayListItem.TicketItem(it) }
+
+        // У подключения есть участок (service_type) — при активном фильтре по услуге
+        // показываем только совпадающие; заявки без участка при фильтре скрываем.
+        val connItems = latestConnections
+            .filter { it.dateGroup() == group }
+            .filter { latestTerritoryFilter == null || it.territoryId == latestTerritoryFilter }
+            .filter { latestServiceFilter == null || it.serviceTypeName == latestServiceFilter }
+            .map { DayListItem.ConnectionItem(it) }
+
+        if (connItems.isEmpty()) return ticketItems
+
+        return when (filterViewModel.sortOrder.value) {
+            // «По адресу» — общий ключ есть у обоих типов, мешаем в одну ленту.
+            Prefs.SORT_BY_ADDRESS -> (ticketItems + connItems).sortedBy { it.address }
+            // «По типу участка» / «По статусу» — у подключения аналога нет, кладём их
+            // после заявок, между собой по времени выезда.
+            Prefs.SORT_BY_SERVICE,
+            Prefs.SORT_BY_STATUS  -> ticketItems + connItems.sortedBy { it.scheduledAt }
+            // «По времени» (по умолчанию) — одна лента по времени выезда, как на вебе и в PWA.
+            else                  -> (ticketItems + connItems).sortedBy { it.scheduledAt }
+        }
+    }
+
     private fun sortTickets(tickets: List<TicketEntity>): List<TicketEntity> {
         return when (filterViewModel.sortOrder.value) {
             Prefs.SORT_BY_ADDRESS -> tickets.sortedBy { it.addressFull ?: "" }
             Prefs.SORT_BY_SERVICE -> tickets.sortedBy { it.serviceTypeName ?: "" }
+            // Группами по числу status.sort_order (открытые/закрытые/отменённые), внутри группы — по времени.
+            Prefs.SORT_BY_STATUS  -> tickets.sortedWith(compareBy({ it.statusSortOrder }, { it.scheduledAt ?: "" }))
             else                  -> tickets  // already sorted by scheduledAt from SQL
         }
     }
@@ -148,6 +184,14 @@ class TicketsFragment : Fragment() {
     private fun setupSwipeGestures() {
         val swipeCallback = object : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT) {
             override fun onMove(rv: RecyclerView, vh: RecyclerView.ViewHolder, target: RecyclerView.ViewHolder) = false
+
+            // Свайпы доступны только строкам заявок — у подключения из объединённой ленты
+            // (как на вебе/PWA) действий по свайпу нет, только переход в карточку.
+            override fun getMovementFlags(rv: RecyclerView, vh: RecyclerView.ViewHolder): Int {
+                val item = adapter.currentList.getOrNull(vh.adapterPosition)
+                if (item !is DayListItem.TicketItem) return 0
+                return super.getMovementFlags(rv, vh)
+            }
 
             // While the user is actively dragging — disable ViewPager2 so it doesn't steal the gesture
             override fun onSelectedChanged(viewHolder: RecyclerView.ViewHolder?, actionState: Int) {
@@ -164,7 +208,8 @@ class TicketsFragment : Fragment() {
 
             override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
                 val position = viewHolder.adapterPosition
-                val ticket = adapter.currentList.getOrNull(position) ?: return
+                val item = adapter.currentList.getOrNull(position) as? DayListItem.TicketItem ?: return
+                val ticket = item.ticket
                 adapter.notifyItemChanged(position)
                 when (direction) {
                     ItemTouchHelper.RIGHT ->
@@ -216,7 +261,7 @@ class TicketsFragment : Fragment() {
                         else       -> emptyList()
                     }
                     saveToCache(tickets, newIds)
-                    // Room Flow will auto-emit with new data — no manual showTickets needed
+                    // Room Flow will auto-emit with new data — no manual showItems needed
                     (activity as? MainActivity)?.refreshSpinnerFromCache()
                     // Territories are only returned by GET /connection-requests — pick up whatever
                     // ConnectionsFragment has cached to prefs by now (per API_MOBILE.md, the id set
@@ -240,7 +285,7 @@ class TicketsFragment : Fragment() {
         }
     }
 
-    private fun showTickets(list: List<TicketEntity>) {
+    private fun showItems(list: List<DayListItem>) {
         adapter.submitList(list)
         binding.layoutEmpty.visibility = if (list.isEmpty() && hasLoadedOnce) View.VISIBLE else View.GONE
         (activity as? MainActivity)?.updateTabCount(group, list.size)
@@ -276,6 +321,7 @@ class TicketsFragment : Fragment() {
                 statusColor      = t.status?.color,
                 statusIsFinal    = t.status?.is_final ?: false,
                 statusSlug       = t.status?.slug,
+                statusSortOrder  = t.status?.sort_order ?: 0,
                 brigade          = t.brigade,
                 assignee         = t.assignee,
                 commentsJson     = gson.toJson(t.comments),

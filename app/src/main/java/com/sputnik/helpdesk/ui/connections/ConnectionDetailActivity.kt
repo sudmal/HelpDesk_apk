@@ -18,6 +18,7 @@ import com.sputnik.helpdesk.data.prefs.Prefs
 import com.sputnik.helpdesk.databinding.ActivityConnectionDetailBinding
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -50,6 +51,9 @@ class ConnectionDetailActivity : AppCompatActivity() {
             loadFromServer()
         }
         supportFragmentManager.setFragmentResultListener("connection_feasibility_answered", this) { _, _ ->
+            loadFromServer()
+        }
+        supportFragmentManager.setFragmentResultListener("connection_cancelled", this) { _, _ ->
             loadFromServer()
         }
 
@@ -212,16 +216,17 @@ class ConnectionDetailActivity : AppCompatActivity() {
 
     private fun applyActionPanel(cr: ConnectionRequest) {
         val status = cr.status
-        if (status == "closed") {
-            binding.panelActions.visibility = View.GONE
-            return
-        }
+        val isFinal = status == "closed" || status == "rejected" || status == "cancelled"
+        val isForeman = Prefs(this).userRole == "foreman"
+
         val needsFeasibility = status == "pending" && cr.feasibility == null
+        val showCancel = isForeman && !isFinal
         binding.btnFeasibility.visibility = if (needsFeasibility) View.VISIBLE else View.GONE
         binding.btnClose.visibility    = if (status == "scheduled") View.VISIBLE else View.GONE
+        binding.btnCancelConnection.visibility = if (showCancel) View.VISIBLE else View.GONE
 
         binding.panelActions.visibility =
-            if (needsFeasibility || status == "scheduled") View.VISIBLE else View.GONE
+            if (needsFeasibility || status == "scheduled" || showCancel) View.VISIBLE else View.GONE
 
         binding.btnFeasibility.setOnClickListener {
             FeasibilitySheet.newInstance(connectionId)
@@ -231,11 +236,22 @@ class ConnectionDetailActivity : AppCompatActivity() {
             CloseConnectionSheet.newInstance(connectionId)
                 .show(supportFragmentManager, "close_conn")
         }
+        binding.btnCancelConnection.setOnClickListener {
+            CancelConnectionSheet.newInstance(connectionId)
+                .show(supportFragmentManager, "cancel_conn")
+        }
     }
 
-    private fun formatDate(s: String): String = runCatching {
-        LocalDate.parse(s.take(10)).format(DateTimeFormatter.ofPattern("d MMMM yyyy", Locale("ru")))
-    }.getOrDefault(s)
+    private fun formatDate(s: String): String {
+        val norm = s.replace('T', ' ')
+        runCatching {
+            return LocalDateTime.parse(norm.take(16), DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
+                .format(DateTimeFormatter.ofPattern("d MMMM yyyy, HH:mm", Locale("ru")))
+        }
+        return runCatching {
+            LocalDate.parse(norm.take(10)).format(DateTimeFormatter.ofPattern("d MMMM yyyy", Locale("ru")))
+        }.getOrDefault(s)
+    }
 
     override fun onSupportNavigateUp(): Boolean {
         onBackPressedDispatcher.onBackPressed()

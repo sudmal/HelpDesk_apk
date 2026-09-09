@@ -44,6 +44,12 @@ data class Ticket(
     val assignee: String?,
     val comments: List<Comment>,
     val attachments: List<Attachment> = emptyList(),
+    val can: TicketCan? = null,
+)
+
+/** Готовые серверные флаги доступности действий по заявке. Пока только reopen. */
+data class TicketCan(
+    val reopen: Boolean = false,
 )
 
 data class ServiceType(
@@ -63,6 +69,7 @@ data class TicketStatus(
     val is_final: Boolean,
     val color: String?,
     val slug: String?,
+    val sort_order: Int = 0,
 )
 
 data class Comment(
@@ -105,6 +112,10 @@ data class CloseTicketRequest(
 
 data class RescheduleRequest(
     val scheduled_at: String,
+    val comment: String?,
+)
+
+data class CancelRequest(
     val comment: String?,
 )
 
@@ -177,6 +188,7 @@ data class Act(
     val promotion_id: Int? = null,
     val promotion_name: String? = null,
     val promotion_price: Double? = null,
+    val promotion_eligible: Boolean = false,
     val materials: List<ActMaterial> = emptyList(),
     val history: List<ActHistoryEntry> = emptyList(),
     val can: ActCan,

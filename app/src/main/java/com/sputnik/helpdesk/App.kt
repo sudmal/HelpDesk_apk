@@ -14,10 +14,15 @@ class App : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
         CrashLogger.init(this)
-        createNotificationChannel()
-        scheduleSyncWorker()
+        try {
+            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
+            createNotificationChannel()
+            scheduleSyncWorker()
+        } catch (t: Throwable) {
+            // Never let startup wiring (notification channel / WorkManager) crash-loop the app.
+            CrashLogger.log(this, "App.onCreate init failed", t)
+        }
     }
 
     private fun createNotificationChannel() {

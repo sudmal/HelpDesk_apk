@@ -18,6 +18,7 @@ import com.sputnik.helpdesk.data.api.RetrofitClient
 import com.sputnik.helpdesk.data.model.RescheduleRequest
 import com.sputnik.helpdesk.data.prefs.Prefs
 import com.sputnik.helpdesk.databinding.SheetRescheduleBinding
+import com.sputnik.helpdesk.util.parseServerMessage
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
 import java.time.Instant
@@ -103,9 +104,10 @@ class RescheduleSheet : BottomSheetDialogFragment() {
                 parentFragmentManager.setFragmentResult("ticket_updated", bundle)
                 dismiss()
             } catch (e: HttpException) {
-                Log.e("RescheduleSheet", "HTTP ${e.code()}: ${e.response()?.errorBody()?.string()}")
+                val body = runCatching { e.response()?.errorBody()?.string() }.getOrNull()
+                Log.e("RescheduleSheet", "HTTP ${e.code()}: $body")
                 val msg = when (e.code()) {
-                    403  -> "Нет прав для переноса заявки"
+                    403  -> parseServerMessage(body, "Нет прав для переноса заявки")
                     422  -> "Неверная дата — должна быть позже текущего момента"
                     else -> "Ошибка сервера ${e.code()}"
                 }

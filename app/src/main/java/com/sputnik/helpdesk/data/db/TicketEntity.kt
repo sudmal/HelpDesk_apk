@@ -1,5 +1,6 @@
 package com.sputnik.helpdesk.data.db
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -29,6 +30,7 @@ data class TicketEntity(
     val statusColor: String?,
     val statusIsFinal: Boolean,
     val statusSlug: String?,
+    @ColumnInfo(defaultValue = "0") val statusSortOrder: Int = 0,
     val brigade: String?,
     val assignee: String?,
     val commentsJson: String,

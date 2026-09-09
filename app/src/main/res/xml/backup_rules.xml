@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?><!--
-   Sample backup rules file; uncomment and customize as necessary.
-   See https://developer.android.com/guide/topics/data/autobackup
-   for details.
-   Note: This file is ignored for devices older than API 31
-   See https://developer.android.com/about/versions/12/backup-restore
+    Auto Backup rules for API 24-30.
+    The encrypted prefs keyset is bound to a non-backed-up Android Keystore key, and the
+    Room DB is only a server-side cache — restoring either onto another device crash-loops
+    the app, so both are excluded from backup.
 -->
 <full-backup-content>
-    <!--
-   <include domain="sharedpref" path="."/>
-   <exclude domain="sharedpref" path="device.xml"/>
--->
+    <exclude domain="sharedpref" path="helpdesk_secure_prefs.xml" />
+    <exclude domain="database" path="helpdesk.db" />
+    <exclude domain="database" path="helpdesk.db-wal" />
+    <exclude domain="database" path="helpdesk.db-shm" />
+    <exclude domain="database" path="helpdesk.db-journal" />
 </full-backup-content>

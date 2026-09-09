@@ -4,17 +4,13 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import com.sputnik.helpdesk.util.CrashLogger
+import java.security.KeyStore
 import java.time.LocalDate
 
 class Prefs(context: Context) {
 
-    private val prefs: SharedPreferences = EncryptedSharedPreferences.create(
-        context,
-        "helpdesk_secure_prefs",
-        MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build(),
-        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-    )
+    private val prefs: SharedPreferences = createSecurePrefs(context.applicationContext)
 
     var token: String?
         get() = prefs.getString(KEY_TOKEN, null)
@@ -99,6 +95,42 @@ class Prefs(context: Context) {
     fun clear() = prefs.edit().clear().apply()
 
     companion object {
+        private const val PREFS_FILE       = "helpdesk_secure_prefs"
+        private const val PREFS_FILE_PLAIN = "helpdesk_prefs_fallback"
+
+        /**
+         * [EncryptedSharedPreferences.create] throws (it does not return null) when the on-disk
+         * Tink keyset no longer matches the Android Keystore master key — which happens after a
+         * cloud restore / device-to-device transfer or a lock-screen change. Left unhandled this
+         * crashes the app on every launch, and a reinstall restores the same broken file. So:
+         * wipe the keyset + master key and retry once, then fall back to plain prefs rather than
+         * crash. In every recovery path the user simply has to log in again.
+         */
+        private fun createSecurePrefs(context: Context): SharedPreferences {
+            repeat(2) { attempt ->
+                try {
+                    return EncryptedSharedPreferences.create(
+                        context,
+                        PREFS_FILE,
+                        MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build(),
+                        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+                    )
+                } catch (t: Throwable) {
+                    CrashLogger.log(context, "EncryptedSharedPreferences.create failed (attempt $attempt)", t)
+                    if (attempt == 0) {
+                        runCatching { context.deleteSharedPreferences(PREFS_FILE) }
+                        runCatching {
+                            KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+                                .deleteEntry(MasterKey.DEFAULT_MASTER_KEY_ALIAS)
+                        }
+                    }
+                }
+            }
+            CrashLogger.log(context, "Falling back to plaintext prefs after repeated keystore failure")
+            return context.getSharedPreferences(PREFS_FILE_PLAIN, Context.MODE_PRIVATE)
+        }
+
         private const val KEY_TOKEN               = "token"
         private const val KEY_NAME                = "name"
         private const val KEY_ROLE                = "role"
@@ -118,6 +150,7 @@ class Prefs(context: Context) {
         const val SORT_BY_TIME                    = "time"
         const val SORT_BY_ADDRESS                 = "address"
         const val SORT_BY_SERVICE                 = "service"
+        const val SORT_BY_STATUS                  = "status"
         const val DEFAULT_CLOSED_CONN_RETENTION_HOURS = 24
     }
 }

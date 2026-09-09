@@ -41,6 +41,15 @@ interface ApiService {
         @Body request: RescheduleRequest,
     ): Ticket
 
+    @POST("tickets/{id}/cancel")
+    suspend fun cancelTicket(
+        @Path("id") ticketId: Int,
+        @Body request: CancelRequest,
+    ): Ticket
+
+    @POST("tickets/{id}/reopen")
+    suspend fun reopenTicket(@Path("id") ticketId: Int): Ticket
+
     @Multipart
     @POST("tickets/{id}/attachments")
     suspend fun uploadAttachments(
@@ -87,6 +96,12 @@ interface ApiService {
     suspend fun answerFeasibility(
         @Path("id") id: Int,
         @Body request: FeasibilityReq,
+    ): ConnectionRequest
+
+    @POST("connection-requests/{id}/cancel")
+    suspend fun cancelConnectionRequest(
+        @Path("id") id: Int,
+        @Body request: CancelRequest,
     ): ConnectionRequest
 
     @DELETE("connection-requests/{id}")

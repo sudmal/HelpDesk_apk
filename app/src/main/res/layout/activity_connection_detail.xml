@@ -246,6 +246,19 @@
             android:textColor="#FFFFFF"
             android:visibility="gone"/>
 
+        <!-- Кнопка отмены — видна только бригадиру, пока заявка не в финальном статусе -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnCancelConnection"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="6dp"
+            android:text="✕ Отменить заявку"
+            android:textColor="#EF4444"
+            app:strokeColor="#EF4444"
+            app:strokeWidth="1dp"
+            android:visibility="gone"/>
+
     </LinearLayout>
 
 </LinearLayout>

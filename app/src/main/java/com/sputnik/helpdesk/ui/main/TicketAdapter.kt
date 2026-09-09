@@ -7,8 +7,11 @@ import android.view.*
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import com.sputnik.helpdesk.data.db.ConnectionRequestEntity
 import com.sputnik.helpdesk.data.db.TicketEntity
+import com.sputnik.helpdesk.databinding.ItemConnectionBinding
 import com.sputnik.helpdesk.databinding.ItemTicketBinding
+import com.sputnik.helpdesk.ui.connections.bindConnectionRow
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.OffsetDateTime
@@ -16,18 +19,43 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-class TicketAdapter(private val onClick: (TicketEntity) -> Unit) :
-    ListAdapter<TicketEntity, TicketAdapter.VH>(DIFF) {
+/**
+ * Объединённая лента дня: обычные заявки + назначенные заявки на подключение
+ * (см. [DayListItem]). Тикеты кликаются в [com.sputnik.helpdesk.ui.detail.DetailActivity]
+ * и поддерживают свайпы, строки подключений — только переход в карточку.
+ */
+class TicketAdapter(
+    private val onTicketClick: (TicketEntity) -> Unit,
+    private val onConnectionClick: (ConnectionRequestEntity) -> Unit = {},
+) : ListAdapter<DayListItem, RecyclerView.ViewHolder>(DIFF) {
 
-    inner class VH(val binding: ItemTicketBinding) : RecyclerView.ViewHolder(binding.root)
+    class TicketVH(val binding: ItemTicketBinding) : RecyclerView.ViewHolder(binding.root)
+    class ConnectionVH(val binding: ItemConnectionBinding) : RecyclerView.ViewHolder(binding.root)
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) = VH(
-        ItemTicketBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-    )
+    override fun getItemViewType(position: Int) = when (getItem(position)) {
+        is DayListItem.TicketItem -> TYPE_TICKET
+        is DayListItem.ConnectionItem -> TYPE_CONNECTION
+    }
 
-    override fun onBindViewHolder(holder: VH, position: Int) {
-        val t = getItem(position)
-        with(holder.binding) {
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+        val inflater = LayoutInflater.from(parent.context)
+        return if (viewType == TYPE_CONNECTION) {
+            ConnectionVH(ItemConnectionBinding.inflate(inflater, parent, false))
+        } else {
+            TicketVH(ItemTicketBinding.inflate(inflater, parent, false))
+        }
+    }
+
+    override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+        when (val item = getItem(position)) {
+            is DayListItem.TicketItem -> bindTicket((holder as TicketVH).binding, item.ticket)
+            is DayListItem.ConnectionItem ->
+                (holder as ConnectionVH).binding.bindConnectionRow(item.connection, onConnectionClick)
+        }
+    }
+
+    private fun bindTicket(binding: ItemTicketBinding, t: TicketEntity) {
+        with(binding) {
             tvNumber.text = t.number
 
             val addrParts = buildList {
@@ -114,7 +142,7 @@ class TicketAdapter(private val onClick: (TicketEntity) -> Unit) :
             } ?: Color.parseColor("#2A2A2A")
             cardRoot.setCardBackgroundColor(cardBg)
 
-            root.setOnClickListener { onClick(t) }
+            root.setOnClickListener { onTicketClick(t) }
         }
     }
 
@@ -133,15 +161,25 @@ class TicketAdapter(private val onClick: (TicketEntity) -> Unit) :
     }
 
     companion object {
+        private const val TYPE_TICKET = 0
+        private const val TYPE_CONNECTION = 1
+
         fun parseIsoToLocal(s: String): LocalDateTime = try {
             OffsetDateTime.parse(s).toLocalDateTime()
         } catch (_: Exception) {
             LocalDateTime.parse(s)
         }
 
-        val DIFF = object : DiffUtil.ItemCallback<TicketEntity>() {
-            override fun areItemsTheSame(a: TicketEntity, b: TicketEntity) = a.id == b.id
-            override fun areContentsTheSame(a: TicketEntity, b: TicketEntity) = a == b
+        val DIFF = object : DiffUtil.ItemCallback<DayListItem>() {
+            override fun areItemsTheSame(a: DayListItem, b: DayListItem): Boolean = when {
+                a is DayListItem.TicketItem && b is DayListItem.TicketItem ->
+                    a.ticket.id == b.ticket.id
+                a is DayListItem.ConnectionItem && b is DayListItem.ConnectionItem ->
+                    a.connection.id == b.connection.id
+                else -> false
+            }
+
+            override fun areContentsTheSame(a: DayListItem, b: DayListItem) = a == b
         }
     }
 }

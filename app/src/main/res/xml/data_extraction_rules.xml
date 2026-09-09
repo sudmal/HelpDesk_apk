@@ -1,19 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?><!--
-   Sample data extraction rules file; uncomment and customize as necessary.
-   See https://developer.android.com/about/versions/12/backup-restore#xml-changes
-   for details.
+    Backup / device-transfer rules for API 31+.
+    The encrypted prefs keyset is bound to a non-backed-up Android Keystore key, and the
+    Room DB is only a server-side cache — restoring either onto another device crash-loops
+    the app, so both are excluded from cloud backup and device transfer.
 -->
 <data-extraction-rules>
     <cloud-backup>
-        <!-- TODO: Use <include> and <exclude> to control what is backed up.
-        <include .../>
-        <exclude .../>
-        -->
+        <exclude domain="sharedpref" path="helpdesk_secure_prefs.xml" />
+        <exclude domain="database" path="helpdesk.db" />
+        <exclude domain="database" path="helpdesk.db-wal" />
+        <exclude domain="database" path="helpdesk.db-shm" />
+        <exclude domain="database" path="helpdesk.db-journal" />
     </cloud-backup>
-    <!--
     <device-transfer>
-        <include .../>
-        <exclude .../>
+        <exclude domain="sharedpref" path="helpdesk_secure_prefs.xml" />
+        <exclude domain="database" path="helpdesk.db" />
+        <exclude domain="database" path="helpdesk.db-wal" />
+        <exclude domain="database" path="helpdesk.db-shm" />
+        <exclude domain="database" path="helpdesk.db-journal" />
     </device-transfer>
-    -->
 </data-extraction-rules>
