@@ -21,6 +21,7 @@ import com.sputnik.helpdesk.data.db.ConnectionRequestEntity
 import com.sputnik.helpdesk.data.db.toEntity
 import com.sputnik.helpdesk.data.model.CRTerritory
 import com.sputnik.helpdesk.data.model.ConnectionRequest
+import com.sputnik.helpdesk.data.model.ConnectionRequestsResponse
 import com.sputnik.helpdesk.data.prefs.Prefs
 import com.sputnik.helpdesk.databinding.FragmentConnectionsBinding
 import com.sputnik.helpdesk.ui.main.MainActivity
@@ -170,13 +171,25 @@ class ConnectionsFragment : Fragment() {
 
         viewLifecycleOwner.lifecycleScope.launch {
             try {
-                val response = RetrofitClient.create(prefs).getConnectionRequests(perPage = 100)
+                val api = RetrofitClient.create(prefs)
+
+                // Default filter (active + recently closed) can span more than one page across
+                // the whole company — a single page (см. «⚠️ Баг на Android» в API_MOBILE.md)
+                // silently dropped older scheduled requests from the cache. Pull every page.
+                val allItems = mutableListOf<ConnectionRequest>()
+                var page = 1
+                lateinit var response: ConnectionRequestsResponse
+                do {
+                    response = api.getConnectionRequests(perPage = 100, page = page)
+                    allItems += response.data
+                    page++
+                } while (page <= response.last_page)
 
                 // Save territories to prefs for CreateSheet and chip population
                 prefs.connectionTerritoriesJson = Gson().toJson(response.territories)
                 populateChips(response.territories)
 
-                saveToCache(response.data)
+                saveToCache(allItems)
             } catch (_: Exception) {
                 _binding?.let {
                     Snackbar.make(it.root, "Нет соединения, показаны кешированные данные", Snackbar.LENGTH_SHORT).show()

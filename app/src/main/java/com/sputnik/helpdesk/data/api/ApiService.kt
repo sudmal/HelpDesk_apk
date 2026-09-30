@@ -72,6 +72,7 @@ interface ApiService {
     suspend fun getConnectionRequests(
         @Query("territory_id") territoryId: Int? = null,
         @Query("per_page") perPage: Int = 100,
+        @Query("page") page: Int = 1,
     ): ConnectionRequestsResponse
 
     @POST("connection-requests")
