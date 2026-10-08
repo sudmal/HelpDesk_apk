@@ -88,9 +88,25 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
                 showNotification(trulyNew, badgeCount)
             }
 
-            // Sync connection requests
+            // Sync connection requests — same background worker that writes the local cache
+            // ConnectionsFragment reads from (и TicketsFragment сливает их в общую ленту дня).
+            // Раньше тут брали только первую страницу (per_page=100) и затем ПОЛНОСТЬЮ
+            // перезатирали таблицу (deleteAll+insertAll) — см. "⚠️ Баг на Android" в
+            // API_MOBILE.md и billд 155. Фикс в ConnectionsFragment.syncFromServer() чинил
+            // ручной Pull-to-refresh, но этот фоновый воркер гонял периодически в фоне и
+            // продолжал стирать корректный кэш обратно до одной страницы — отсюда жалобы
+            // "после очистки кэша снова появляются, потом опять пропадают". Теперь вычитывает
+            // все страницы, как и ручной sync.
             try {
-                syncConnectionRequests(api.getConnectionRequests(perPage = 100).data)
+                val allConnections = mutableListOf<ConnectionRequest>()
+                var crPage = 1
+                while (true) {
+                    val crResponse = api.getConnectionRequests(perPage = 100, page = crPage)
+                    allConnections += crResponse.data
+                    if (crPage >= crResponse.last_page) break
+                    crPage++
+                }
+                syncConnectionRequests(allConnections)
             } catch (_: Exception) { }
 
             // Sync acts (not yet fully approved) — feeds the "Акты" list + red-dot badge
